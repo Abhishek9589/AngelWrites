@@ -32,7 +32,6 @@ import {
   allTags,
   createPoem,
   deletePoem,
-  download,
   filterByTags,
   formatDate,
   loadPoems,
@@ -42,11 +41,11 @@ import {
   searchPoems,
   sortPoems,
   SortOption,
-  toJSON,
   updatePoem,
 } from "@/lib/poems";
 import { format } from "date-fns";
-import { ArrowDownAZ, ArrowDownWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload, Download } from "lucide-react";
+import { ArrowDownAZ, ArrowDownWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload } from "lucide-react";
+import * as mammoth from "mammoth";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -55,7 +54,7 @@ export default function Index() {
   const [sort, setSort] = useState<SortOption>("newest");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const pageSize = 12;
+  const pageSize = 9;
 
   useEffect(() => {
     savePoems(poems);
@@ -68,11 +67,14 @@ export default function Index() {
     return base;
   }, [poems, query, selectedTags, sort]);
 
-  const paginated = filtered.slice(0, page * pageSize);
-  const canLoadMore = paginated.length < filtered.length;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const paginated = filtered.slice(start, start + pageSize);
 
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<Poem | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,28 +105,66 @@ export default function Index() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this poem? This cannot be undone.")) return;
-    setPoems((prev) => deletePoem(prev, id));
+    setDeleteId(id);
+  };
+  const confirmDelete = () => {
+    if (!deleteId) return;
+    setPoems((prev) => deletePoem(prev, deleteId));
+    setDeleteId(null);
   };
 
-  const exportJSON = () => download(`angelhub-poems-${Date.now()}.json`, toJSON(poems), "application/json");
 
   const importRef = useRef<HTMLInputElement>(null);
-  const onImport = async (file: File) => {
-    const text = await file.text();
-    try {
-      const obj = JSON.parse(text);
-      const imported: Poem[] = Array.isArray(obj) ? obj : Array.isArray(obj.poems) ? obj.poems : [];
-      if (!imported.length) throw new Error("No poems found");
-      setPoems((prev) => {
-        const map = new Map<string, Poem>(prev.map((p) => [p.id, p]));
-        for (const p of imported) map.set(p.id, p);
-        return sortPoems(Array.from(map.values()), sort);
-      });
-      alert(`Imported ${imported.length} poems`);
-    } catch (err) {
-      alert("Failed to import. Ensure it's a JSON export from angelhub.");
+  const onImportFiles = async (files: FileList) => {
+    const arr = Array.from(files);
+    let jsonCount = 0;
+    const created: Poem[] = [];
+    const importedMap = new Map<string, Poem>();
+    for (const file of arr) {
+      const isJSON = file.type === "application/json" || /\.json$/i.test(file.name);
+      const isDOCX = /\.docx$/i.test(file.name);
+      if (isJSON) {
+        try {
+          const text = await file.text();
+          const obj = JSON.parse(text);
+          const imported: Poem[] = Array.isArray(obj) ? obj : Array.isArray(obj.poems) ? obj.poems : [];
+          imported.forEach((p) => importedMap.set(p.id, p));
+          jsonCount += imported.length;
+        } catch {
+          alert(`Failed to import JSON file: ${file.name}`);
+        }
+      } else if (isDOCX) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          const title = file.name.replace(/\.docx$/i, "");
+          const poem = createPoem({
+            title,
+            content: (result.value || "").trim(),
+            date: format(new Date(), "yyyy-MM-dd"),
+            tags: [],
+          });
+          created.push(poem);
+        } catch {
+          alert(`Failed to import DOCX file: ${file.name}`);
+        }
+      }
     }
+    if (jsonCount === 0 && created.length === 0) {
+      alert("No supported files imported. Please select .json or .docx files.");
+      return;
+    }
+    setPoems((prev) => {
+      const map = new Map<string, Poem>(prev.map((p) => [p.id, p]));
+      importedMap.forEach((p) => map.set(p.id, p));
+      const next = Array.from(map.values());
+      const combined = created.length ? [...created, ...next] : next;
+      return sortPoems(combined, sort);
+    });
+    const parts: string[] = [];
+    if (jsonCount) parts.push(`JSON: ${jsonCount}`);
+    if (created.length) parts.push(`DOCX: ${created.length}`);
+    alert(`Imported ${parts.join(" and ")}`);
   };
 
   return (
@@ -143,7 +183,7 @@ export default function Index() {
                 }}
               />
             </div>
-            <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+            <Select value={sort} onValueChange={(v) => { setSort(v as SortOption); setPage(1); }}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
@@ -155,12 +195,11 @@ export default function Index() {
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            <input ref={importRef} type="file" accept="application/json" className="hidden" onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onImport(f);
+            <input ref={importRef} type="file" accept=".docx,application/json" multiple className="hidden" onChange={(e) => {
+              const fs = e.target.files;
+              if (fs && fs.length) onImportFiles(fs);
               e.currentTarget.value = "";
             }} />
-            <Button variant="outline" onClick={exportJSON} className="gap-2"><Download className="h-4 w-4" /> JSON</Button>
             <Dialog open={openForm} onOpenChange={(v) => { setOpenForm(v); if (!v) setEditing(null); }}>
               <DialogTrigger asChild>
                 <Button className="gap-2"><Plus className="h-4 w-4" /> New Poem</Button>
@@ -199,7 +238,7 @@ export default function Index() {
               return (
                 <button
                   key={t}
-                  onClick={() => setSelectedTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])}
+                  onClick={() => { setSelectedTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]); setPage(1); }}
                   className={`rounded-full border px-3 py-1 text-xs transition ${active ? "bg-primary text-primary-foreground border-transparent" : "hover:bg-accent"}`}
                 >
                   #{t}
@@ -258,17 +297,33 @@ export default function Index() {
           ))}
         </section>
 
-        <div className="mt-8 flex justify-center">
-          {canLoadMore ? (
-            <Button variant="secondary" onClick={() => setPage((x) => x + 1)}>Load more</Button>
-          ) : (
-            <p className="text-sm text-muted-foreground">Showing {paginated.length} of {filtered.length} poems</p>
-          )}
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <p className="text-sm text-muted-foreground">
+            {filtered.length > 0 ? `Showing ${start + 1}–${Math.min(start + paginated.length, filtered.length)} of ${filtered.length} poems` : "Showing 0 of 0 poems"}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+          </div>
         </div>
 
         {poems.length === 0 && (
           <EmptyState onCreate={() => setOpenForm(true)} />)
         }
+
+        <Dialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete poem</DialogTitle>
+              <DialogDescription>Are you sure you want to delete this poem? This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <footer className="mt-10 py-8 text-center text-xs text-muted-foreground">
           <div className="flex items-center justify-center gap-2">

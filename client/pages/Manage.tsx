@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
 import {
   Poem,
   loadPoems,
@@ -10,18 +9,19 @@ import {
   SortOption,
   toJSON,
   download,
-  createPoem,
   savePoems,
 } from "@/lib/poems";
-import { exportPoemsToDOCX, exportPoemsToPDF } from "@/lib/exporters";
-import { Download, FileDown, FileJson, FileText, Search, Upload, Trash2, FileType } from "lucide-react";
-import * as mammoth from "mammoth";
+import { createDOCXBlobForPoem, createPDFBlobForPoem } from "@/lib/exporters";
+import { FileDown, FileJson, Search, Trash2 } from "lucide-react";
+import JSZip from "jszip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function Manage() {
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [openDelete, setOpenDelete] = useState(false);
 
   useEffect(() => { savePoems(poems); }, [poems]);
 
@@ -39,76 +39,59 @@ export default function Manage() {
     else setSelected(new Set(filtered.map((p) => p.id)));
   };
 
-  const jsonFileRef = useRef<HTMLInputElement>(null);
-  const docxFileRef = useRef<HTMLInputElement>(null);
-
-  const backupAllJSON = () => download("angelhub-backup.json", toJSON(loadPoems()), "application/json");
   const exportSelectedJSON = () => {
     if (selected.size === 0) return alert("Select poems first.");
     const list = poems.filter((p) => selected.has(p.id));
     download("angelhub-selected.json", toJSON(list), "application/json");
   };
 
-  async function exportSelectedPDF() {
-    if (selected.size === 0) return alert("Select poems first.");
-    const list = poems.filter((p) => selected.has(p.id));
-    await exportPoemsToPDF(list);
+  function sanitize(name: string, ext: string) {
+    const base = name.replace(/[\\/:*?"<>|]/g, "_").trim().slice(0, 80) || "poem";
+    return `${base}.${ext}`;
   }
-  async function exportSelectedDOCX() {
-    if (selected.size === 0) return alert("Select poems first.");
-    const list = poems.filter((p) => selected.has(p.id));
-    await exportPoemsToDOCX(list);
-  }
-
-  async function onImportJSON(file: File) {
-    const text = await file.text();
-    try {
-      const obj = JSON.parse(text);
-      const imported: Poem[] = Array.isArray(obj) ? obj : Array.isArray(obj.poems) ? obj.poems : [];
-      if (!imported.length) throw new Error("No poems found");
-      const map = new Map<string, Poem>(poems.map((p) => [p.id, p]));
-      for (const p of imported) map.set(p.id, p);
-      const next = Array.from(map.values());
-      setPoems(next);
-      alert(`Imported ${imported.length} poems from JSON`);
-    } catch (e) {
-      alert("Import failed. Please provide a valid angelhub JSON file.");
-    }
+  function downloadBlob(filename: string, blob: Blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
-  async function onImportDOCX(files: FileList) {
-    const arr = Array.from(files);
-    if (!arr.length) return;
-    const created: Poem[] = [];
-    for (const file of arr) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        const title = file.name.replace(/\.docx$/i, "");
-        const poem = createPoem({
-          title,
-          content: (result.value || "").trim(),
-          date: format(new Date(), "yyyy-MM-dd"),
-          tags: [],
-        });
-        created.push(poem);
-      } catch (e) {
-        console.error("Failed to import DOCX", file.name, e);
-      }
+  async function exportSelectedPDFZip() {
+    if (selected.size === 0) return alert("Select poems first.");
+    const list = poems.filter((p) => selected.has(p.id));
+    const zip = new JSZip();
+    for (const p of list) {
+      const blob = await createPDFBlobForPoem(p);
+      zip.file(sanitize(p.title, "pdf"), blob);
     }
-    if (created.length) {
-      setPoems((prev) => [...created, ...prev]);
-      alert(`Imported ${created.length} poem(s) from DOCX`);
-    } else {
-      alert("No poems imported from DOCX files.");
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob("poems-pdf.zip", out);
+  }
+
+  async function exportSelectedDOCXZip() {
+    if (selected.size === 0) return alert("Select poems first.");
+    const list = poems.filter((p) => selected.has(p.id));
+    const zip = new JSZip();
+    for (const p of list) {
+      const blob = await createDOCXBlobForPoem(p);
+      zip.file(sanitize(p.title, "docx"), blob);
     }
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob("poems-docx.zip", out);
   }
 
   function deleteSelected() {
     if (selected.size === 0) return alert("Select poems first.");
-    if (!confirm(`Delete ${selected.size} selected poem(s)? This cannot be undone.`)) return;
+    setOpenDelete(true);
+  }
+  function confirmDelete() {
     setPoems((prev) => prev.filter((p) => !selected.has(p.id)));
     setSelected(new Set());
+    setOpenDelete(false);
   }
 
   return (
@@ -121,15 +104,10 @@ export default function Manage() {
           <Input placeholder="Search poems" className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={backupAllJSON} className="gap-2"><FileJson className="h-4 w-4" /> Backup JSON (All)</Button>
-          <Button variant="outline" onClick={exportSelectedJSON} className="gap-2"><FileJson className="h-4 w-4" /> JSON (Selected)</Button>
-          <input ref={jsonFileRef} type="file" accept="application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportJSON(f); e.currentTarget.value = ""; }} />
-          <Button variant="secondary" onClick={() => jsonFileRef.current?.click()} className="gap-2"><Upload className="h-4 w-4" /> Import JSON</Button>
-          <input ref={docxFileRef} type="file" accept=".docx" multiple className="hidden" onChange={(e) => { const fs = e.target.files; if (fs) onImportDOCX(fs); e.currentTarget.value = ""; }} />
-          <Button variant="secondary" onClick={() => docxFileRef.current?.click()} className="gap-2"><Upload className="h-4 w-4" /> Import DOCX</Button>
-          <Button onClick={exportSelectedPDF} className="gap-2"><FileDown className="h-4 w-4" /> PDF (Selected)</Button>
-          <Button onClick={exportSelectedDOCX} className="gap-2"><FileDown className="h-4 w-4" /> DOCX (Selected)</Button>
-          <Button variant="destructive" onClick={deleteSelected} className="gap-2"><Trash2 className="h-4 w-4" /> Delete Selected</Button>
+          <Button variant="outline" onClick={exportSelectedJSON} className="gap-2"><FileJson className="h-4 w-4" /> JSON</Button>
+          <Button variant="outline" onClick={exportSelectedPDFZip} className="gap-2"><FileDown className="h-4 w-4" /> PDF</Button>
+          <Button variant="outline" onClick={exportSelectedDOCXZip} className="gap-2"><FileDown className="h-4 w-4" /> DOCX</Button>
+          <Button variant="destructive" onClick={deleteSelected}><Trash2 className="h-4 w-4" aria-label="Delete" /></Button>
         </div>
       </div>
 
@@ -162,6 +140,21 @@ export default function Manage() {
       </div>
 
       <p className="mt-3 text-xs text-muted-foreground">Tip: Use the checkboxes to select poems for actions above.</p>
+
+      <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete selected</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selected.size} selected poem{selected.size === 1 ? "" : "s"}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenDelete(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

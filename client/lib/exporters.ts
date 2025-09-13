@@ -41,6 +41,27 @@ export async function exportPoemsToPDF(poems: Poem[], filename = "angelhub-poems
   doc.save(filename);
 }
 
+export async function createPDFBlobForPoem(p: Poem): Promise<Blob> {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 48;
+  const width = pageWidth - margin * 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(p.title, margin, 64, { maxWidth: width });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const meta = `${new Date(p.date).toDateString()} ${p.tags.length ? "• " + p.tags.join(", ") : ""}`;
+  doc.text(meta, margin, 84, { maxWidth: width });
+
+  doc.setFontSize(12);
+  const content = wrap(p.content, 100);
+  doc.text(content, margin, 120, { maxWidth: width, lineHeightFactor: 1.4 });
+
+  return doc.output("blob") as Blob;
+}
+
 export async function exportPoemsToDOCX(poems: Poem[], filename = "angelhub-poems.docx") {
   const children: Paragraph[] = [] as any;
   poems.forEach((p, idx) => {
@@ -77,4 +98,18 @@ export async function exportPoemsToDOCX(poems: Poem[], filename = "angelhub-poem
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function createDOCXBlobForPoem(p: Poem): Promise<Blob> {
+  const children: Paragraph[] = [] as any;
+  children.push(new Paragraph({ text: p.title, heading: HeadingLevel.HEADING_1 }));
+  const meta = `${new Date(p.date).toDateString()}${p.tags.length ? " • " + p.tags.join(", ") : ""}`;
+  children.push(new Paragraph({ children: [new TextRun({ text: meta, italics: true })] }));
+  children.push(new Paragraph({}));
+  p.content.split(/\n\n+/).forEach((para) => {
+    children.push(new Paragraph({ children: [new TextRun({ text: para })] }));
+    children.push(new Paragraph({}));
+  });
+  const doc = new Document({ sections: [{ properties: {}, children }] });
+  return await Packer.toBlob(doc);
 }
