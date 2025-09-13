@@ -1,6 +1,7 @@
 import { Poem } from "./poems";
-import jsPDF from "jspdf";
-import { Document, HeadingLevel, Packer, Paragraph, TextRun, PageBreak } from "docx";
+import React from "react";
+import { Document, Page, Text, StyleSheet, pdf } from "@react-pdf/renderer";
+import { Document as DocxDocument, HeadingLevel, Packer, Paragraph, TextRun, PageBreak } from "docx";
 
 function wrap(text: string, max = 85) {
   const words = text.split(/\s+/);
@@ -18,48 +19,47 @@ function wrap(text: string, max = 85) {
   return lines.join("\n");
 }
 
+const styles = StyleSheet.create({
+  page: { padding: 48 },
+  title: { fontSize: 18, fontWeight: 700 },
+  meta: { fontSize: 10, color: '#6b7280', marginTop: 6 },
+  content: { fontSize: 12, lineHeight: 1.4, marginTop: 14 },
+});
+
+function getPDFElement(poems: Poem[]) {
+  return React.createElement(
+    Document,
+    null,
+    poems.map((p) =>
+      React.createElement(
+        Page,
+        { key: p.id, size: "A4", style: styles.page, wrap: true },
+        React.createElement(Text, { style: styles.title }, p.title),
+        React.createElement(
+          Text,
+          { style: styles.meta },
+          `${new Date(p.date).toDateString()}${p.tags.length ? " • " + p.tags.join(", ") : ""}`,
+        ),
+        React.createElement(Text, { style: styles.content }, p.content),
+      ),
+    ),
+  );
+}
+
 export async function exportPoemsToPDF(poems: Poem[], filename = "angelhub-poems.pdf") {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 48;
-  const width = pageWidth - margin * 2;
-  poems.forEach((p, idx) => {
-    if (idx > 0) doc.addPage();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(p.title, margin, 64, { maxWidth: width });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    const meta = `${new Date(p.date).toDateString()} ${p.tags.length ? "• " + p.tags.join(", ") : ""}`;
-    doc.text(meta, margin, 84, { maxWidth: width });
-
-    doc.setFontSize(12);
-    const content = wrap(p.content, 100);
-    doc.text(content, margin, 120, { maxWidth: width, lineHeightFactor: 1.4 });
-  });
-  doc.save(filename);
+  const blob = await pdf(getPDFElement(poems)).toBlob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export async function createPDFBlobForPoem(p: Poem): Promise<Blob> {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 48;
-  const width = pageWidth - margin * 2;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text(p.title, margin, 64, { maxWidth: width });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  const meta = `${new Date(p.date).toDateString()} ${p.tags.length ? "• " + p.tags.join(", ") : ""}`;
-  doc.text(meta, margin, 84, { maxWidth: width });
-
-  doc.setFontSize(12);
-  const content = wrap(p.content, 100);
-  doc.text(content, margin, 120, { maxWidth: width, lineHeightFactor: 1.4 });
-
-  return doc.output("blob") as Blob;
+  return await pdf(getPDFElement([p])).toBlob();
 }
 
 export async function exportPoemsToDOCX(poems: Poem[], filename = "angelhub-poems.docx") {
@@ -81,7 +81,7 @@ export async function exportPoemsToDOCX(poems: Poem[], filename = "angelhub-poem
     });
   });
 
-  const doc = new Document({
+  const doc = new DocxDocument({
     sections: [
       {
         properties: {},
@@ -110,6 +110,6 @@ export async function createDOCXBlobForPoem(p: Poem): Promise<Blob> {
     children.push(new Paragraph({ children: [new TextRun({ text: para })] }));
     children.push(new Paragraph({}));
   });
-  const doc = new Document({ sections: [{ properties: {}, children }] });
+  const doc = new DocxDocument({ sections: [{ properties: {}, children }] });
   return await Packer.toBlob(doc);
 }
