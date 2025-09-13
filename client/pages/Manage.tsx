@@ -63,6 +63,15 @@ export default function Manage() {
   async function exportSelectedPDFZip() {
     if (selected.size === 0) return alert("Select poems first.");
     const list = poems.filter((p) => selected.has(p.id));
+
+    // If only one poem is selected, download the individual PDF directly (no zip)
+    if (list.length === 1) {
+      const p = list[0];
+      const blob = await createPDFBlobForPoem(p);
+      downloadBlob(sanitize(p.title, "pdf"), blob);
+      return;
+    }
+
     const zip = new JSZip();
     for (const p of list) {
       const blob = await createPDFBlobForPoem(p);
@@ -75,6 +84,15 @@ export default function Manage() {
   async function exportSelectedDOCXZip() {
     if (selected.size === 0) return alert("Select poems first.");
     const list = poems.filter((p) => selected.has(p.id));
+
+    // If only one poem is selected, download the individual DOCX directly (no zip)
+    if (list.length === 1) {
+      const p = list[0];
+      const blob = await createDOCXBlobForPoem(p);
+      downloadBlob(sanitize(p.title, "docx"), blob);
+      return;
+    }
+
     const zip = new JSZip();
     for (const p of list) {
       const blob = await createDOCXBlobForPoem(p);
