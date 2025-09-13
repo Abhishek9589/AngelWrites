@@ -13,6 +13,7 @@ import Favorites from "./pages/Favorites";
 import Dashboard from "./pages/Dashboard";
 import Manage from "./pages/Manage";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+      <Analytics />
   </QueryClientProvider>
 );
 

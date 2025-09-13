@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +48,6 @@ import { ArrowDownAZ, ArrowDownWideNarrow, Filter, MoreHorizontal, Plus, Search,
 import * as mammoth from "mammoth";
 
 export default function Index() {
-  const navigate = useNavigate();
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
@@ -274,7 +273,7 @@ export default function Index() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setEditing(p); setOpenForm(true); }}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/poem/${p.id}`)}>Open</DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link to={`/poem/${p.id}`}>Open</Link></DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(p.id)}>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -287,7 +286,7 @@ export default function Index() {
                   ))}
                 </div>
                 <div className="mt-4">
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/poem/${p.id}`)}>Read</Button>
+                  <Link to={`/poem/${p.id}`}><Button variant="outline" size="sm">Read</Button></Link>
                 </div>
               </CardContent>
               {p.draft && (

@@ -5,10 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loadPoems, Poem, savePoems, updatePoem, formatDate } from "@/lib/poems";
 import { Search, Star, StarOff } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Favorites() {
-  const navigate = useNavigate();
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
   const [query, setQuery] = useState("");
 
@@ -61,7 +60,7 @@ export default function Favorites() {
                 ))}
               </div>
               <div className="mt-4">
-                <Button variant="outline" size="sm" onClick={() => navigate(`/poem/${p.id}`)}>Read</Button>
+                <Link to={`/poem/${p.id}`}><Button variant="outline" size="sm">Read</Button></Link>
               </div>
             </CardContent>
           </Card>
