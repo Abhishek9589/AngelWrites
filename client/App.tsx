@@ -13,6 +13,7 @@ import PoemDetail from "./pages/PoemDetail";
 import Favorites from "./pages/Favorites";
 import Dashboard from "./pages/Dashboard";
 import Manage from "./pages/Manage";
+import Themes from "./pages/Themes";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Analytics } from "@vercel/analytics/react";
 import { buttonVariants } from "@/components/ui/button";
@@ -42,6 +43,7 @@ function Layout() {
             <NavLink to="/favorites" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Favorites</NavLink>
             <NavLink to="/dashboard" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Dashboard</NavLink>
             <NavLink to="/manage" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Manage</NavLink>
+            <NavLink to="/themes" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Themes</NavLink>
             <ThemeToggle />
           </nav>
         </div>
@@ -64,6 +66,7 @@ const App = () => (
             <Route path="favorites" element={<Favorites />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="manage" element={<Manage />} />
+            <Route path="themes" element={<Themes />} />
             <Route path="backup" element={<Navigate to="/manage" replace />} />
           </Route>
           <Route path="*" element={<NotFound />} />

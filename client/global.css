@@ -11,9 +11,9 @@
    * Colors are expressed as HSL components to match tailwind.config.ts
   */
   :root {
-    /* Light theme: soft/pastel */
-    --background: 24 100% 95%;          /* soft cream #fff1e6 */
-    --foreground: 215 28% 17%;          /* charcoal */
+    /* Default (Pastel Airy) Light */
+    --background: 24 100% 95%;
+    --foreground: 215 28% 17%;
 
     --card: 0 0% 100%;
     --card-foreground: 215 28% 17%;
@@ -21,16 +21,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 28% 17%;
 
-    --primary: 216 100% 82%;            /* pastel sky #a2d2ff */
+    --primary: 216 100% 82%;
     --primary-foreground: 215 28% 15%;
 
-    --secondary: 283 29% 80%;           /* lavender #cdb4db */
+    --secondary: 283 29% 80%;
     --secondary-foreground: 215 28% 20%;
 
     --muted: 20 60% 92%;
     --muted-foreground: 215 18% 35%;
 
-    --accent: 134 86% 85%;              /* mint #b9fbc0 */
+    --accent: 134 86% 85%;
     --accent-foreground: 215 28% 20%;
 
     --destructive: 348 100% 56%;
@@ -38,7 +38,7 @@
 
     --border: 24 45% 88%;
     --input: 24 45% 90%;
-    --ring: 189 92% 56%;                /* neon cyan highlight */
+    --ring: 189 92% 56%;
 
     --radius: 1.25rem;
 
@@ -52,14 +52,14 @@
     --sidebar-ring: 189 92% 56%;
 
     /* Gradient tokens */
-    --grad-1: 189 92% 56%;  /* cyan */
-    --grad-2: 271 91% 65%;  /* purple */
-    --grad-3: 330 81% 60%;  /* pink */
+    --grad-1: 189 92% 56%;
+    --grad-2: 271 91% 65%;
+    --grad-3: 330 81% 60%;
   }
 
   .dark {
-    /* Dark theme: deep & neon accents */
-    --background: 222 47% 11%;          /* navy #0f172a */
+    /* Default (Pastel Airy) Dark */
+    --background: 222 47% 11%;
     --foreground: 210 20% 95%;
 
     --card: 222 40% 14%;
@@ -68,16 +68,16 @@
     --popover: 222 40% 14%;
     --popover-foreground: 210 20% 95%;
 
-    --primary: 266 72% 51%;             /* violet #6d28d9 */
+    --primary: 266 72% 51%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 213 32% 20%;           /* teal slate */
+    --secondary: 213 32% 20%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 222 32% 18%;
     --muted-foreground: 210 15% 70%;
 
-    --accent: 189 92% 56%;              /* neon cyan */
+    --accent: 189 92% 56%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 75% 55%;
@@ -98,9 +98,277 @@
     --sidebar-border: 222 32% 22%;
     --sidebar-ring: 189 92% 56%;
 
-    --grad-1: 189 92% 56%;  /* cyan */
-    --grad-2: 266 72% 51%;  /* violet */
-    --grad-3: 330 81% 60%;  /* pink */
+    --grad-1: 189 92% 56%;
+    --grad-2: 266 72% 51%;
+    --grad-3: 330 81% 60%;
+  }
+
+  /* Preset: Pastel Airy (explicit, same as default) */
+  :root[data-theme="pastel"] { }
+  .dark[data-theme="pastel"] { }
+
+  /* Preset: Sunset Glow */
+  :root[data-theme="sunset"] {
+    --background: 35 100% 93%; /* #fff0d9 */
+    --foreground: 24 25% 25%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 25% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 25% 25%;
+    --primary: 10 100% 82%; /* #ffb5a7 */
+    --primary-foreground: 24 25% 20%;
+    --secondary: 30 100% 82%; /* #ffd6a5 */
+    --secondary-foreground: 24 25% 25%;
+    --muted: 30 70% 90%;
+    --muted-foreground: 24 20% 35%;
+    --accent: 20 95% 70%;
+    --accent-foreground: 24 25% 20%;
+    --destructive: 8 85% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 45% 85%;
+    --input: 30 45% 88%;
+    --ring: 18 100% 60%;
+    --sidebar-background: 35 100% 94%;
+    --sidebar-foreground: 24 25% 25%;
+    --sidebar-primary: 10 100% 82%;
+    --sidebar-primary-foreground: 24 25% 20%;
+    --sidebar-accent: 20 95% 72%;
+    --sidebar-accent-foreground: 24 25% 20%;
+    --sidebar-border: 30 45% 85%;
+    --sidebar-ring: 18 100% 60%;
+    --grad-1: 24 100% 60%;
+    --grad-2: 330 81% 60%;
+    --grad-3: 0 90% 55%;
+  }
+  .dark[data-theme="sunset"] {
+    --background: 292 70% 16%; /* #3b0a45 */
+    --foreground: 10 80% 92%; /* #fbe0dc */
+    --card: 292 52% 20%;
+    --card-foreground: 10 80% 92%;
+    --popover: 292 52% 20%;
+    --popover-foreground: 10 80% 92%;
+    --primary: 330 81% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 330 55% 24%; /* burgundy-ish */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 292 35% 22%;
+    --muted-foreground: 10 30% 80%;
+    --accent: 18 100% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 292 35% 26%;
+    --input: 292 35% 26%;
+    --ring: 18 100% 60%;
+    --sidebar-background: 292 70% 14%;
+    --sidebar-foreground: 10 80% 92%;
+    --sidebar-primary: 330 81% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 18 100% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 292 35% 26%;
+    --sidebar-ring: 18 100% 60%;
+    --grad-1: 18 100% 60%;
+    --grad-2: 330 81% 60%;
+    --grad-3: 0 90% 55%;
+  }
+
+  /* Preset: Ocean Breeze */
+  :root[data-theme="ocean"] {
+    --background: 214 94% 91%; /* #dbeafe */
+    --foreground: 215 28% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 20%;
+    --primary: 158 76% 80%; /* #a7f3d0 */
+    --primary-foreground: 215 28% 20%;
+    --secondary: 147 77% 85%; /* #bbf7d0 */
+    --secondary-foreground: 215 28% 20%;
+    --muted: 210 50% 92%;
+    --muted-foreground: 215 20% 35%;
+    --accent: 189 92% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 45% 85%;
+    --input: 210 45% 88%;
+    --ring: 189 92% 56%;
+    --sidebar-background: 214 94% 92%;
+    --sidebar-foreground: 215 28% 20%;
+    --sidebar-primary: 158 76% 80%;
+    --sidebar-primary-foreground: 215 28% 20%;
+    --sidebar-accent: 189 92% 56%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 210 45% 85%;
+    --sidebar-ring: 189 92% 56%;
+    --grad-1: 199 89% 48%;
+    --grad-2: 168 73% 41%;
+    --grad-3: 147 77% 45%;
+  }
+  .dark[data-theme="ocean"] {
+    --background: 205 86% 16%; /* #082f49 */
+    --foreground: 158 76% 90%; /* #d1fae5 */
+    --card: 205 70% 20%;
+    --card-foreground: 158 76% 90%;
+    --popover: 205 70% 20%;
+    --popover-foreground: 158 76% 90%;
+    --primary: 162 89% 20%; /* emerald */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 60% 17%; /* teal black */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 205 40% 22%;
+    --muted-foreground: 158 20% 80%;
+    --accent: 189 92% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 205 40% 26%;
+    --input: 205 40% 26%;
+    --ring: 189 92% 56%;
+    --sidebar-background: 205 86% 14%;
+    --sidebar-foreground: 158 76% 90%;
+    --sidebar-primary: 162 89% 20%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 189 92% 56%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 205 40% 26%;
+    --sidebar-ring: 189 92% 56%;
+    --grad-1: 189 92% 56%;
+    --grad-2: 168 73% 41%;
+    --grad-3: 147 77% 45%;
+  }
+
+  /* Preset: Aurora Nights */
+  :root[data-theme="aurora"] {
+    --background: 255 94% 95%; /* #ede9fe */
+    --foreground: 215 28% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 20%;
+    --primary: 266 72% 60%; /* violet */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 204 94% 95%; /* baby blue */
+    --secondary-foreground: 215 28% 20%;
+    --muted: 240 40% 94%;
+    --muted-foreground: 215 20% 35%;
+    --accent: 168 77% 82%; /* soft mint */
+    --accent-foreground: 215 28% 20%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 255 40% 88%;
+    --input: 255 40% 90%;
+    --ring: 189 92% 56%;
+    --sidebar-background: 255 94% 96%;
+    --sidebar-foreground: 215 28% 20%;
+    --sidebar-primary: 266 72% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 168 77% 82%;
+    --sidebar-accent-foreground: 215 28% 20%;
+    --sidebar-border: 255 40% 88%;
+    --sidebar-ring: 189 92% 56%;
+    --grad-1: 271 91% 65%;
+    --grad-2: 189 92% 56%;
+    --grad-3: 147 77% 45%;
+  }
+  .dark[data-theme="aurora"] {
+    --background: 244 45% 20%; /* #1e1b4b */
+    --foreground: 204 94% 95%; /* #e0f2fe */
+    --card: 244 35% 24%;
+    --card-foreground: 204 94% 95%;
+    --popover: 244 35% 24%;
+    --popover-foreground: 204 94% 95%;
+    --primary: 266 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 226 74% 34%; /* indigo */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 244 25% 26%;
+    --muted-foreground: 204 30% 85%;
+    --accent: 162 89% 20%; /* emerald glow */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 244 25% 28%;
+    --input: 244 25% 28%;
+    --ring: 189 92% 56%;
+    --sidebar-background: 244 45% 18%;
+    --sidebar-foreground: 204 94% 95%;
+    --sidebar-primary: 266 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 162 89% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 244 25% 28%;
+    --sidebar-ring: 189 92% 56%;
+    --grad-1: 271 91% 65%;
+    --grad-2: 189 92% 56%;
+    --grad-3: 147 77% 45%;
+  }
+
+  /* Preset: Strawberry Milk */
+  :root[data-theme="strawberry"] {
+    --background: 350 100% 96%; /* #fff1f2 */
+    --foreground: 9 14% 19%; /* dark rose gray */
+    --card: 0 0% 100%;
+    --card-foreground: 9 14% 19%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 9 14% 19%;
+    --primary: 342 100% 95%; /* #ffe5ec */
+    --primary-foreground: 9 14% 19%;
+    --secondary: 350 100% 89%; /* #ffcad4 */
+    --secondary-foreground: 9 14% 19%;
+    --muted: 345 40% 92%;
+    --muted-foreground: 9 15% 35%;
+    --accent: 344 100% 70%; /* strawberry */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 350 85% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 345 35% 88%;
+    --input: 345 35% 90%;
+    --ring: 344 100% 60%;
+    --sidebar-background: 350 100% 97%;
+    --sidebar-foreground: 9 14% 19%;
+    --sidebar-primary: 342 100% 95%;
+    --sidebar-primary-foreground: 9 14% 19%;
+    --sidebar-accent: 344 100% 72%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 345 35% 88%;
+    --sidebar-ring: 344 100% 60%;
+    --grad-1: 344 100% 60%;
+    --grad-2: 350 100% 70%;
+    --grad-3: 0 90% 55%;
+  }
+  .dark[data-theme="strawberry"] {
+    --background: 323 44% 26%; /* #581c35 */
+    --foreground: 345 100% 93%; /* #ffe4eb */
+    --card: 323 35% 30%;
+    --card-foreground: 345 100% 93%;
+    --popover: 323 35% 30%;
+    --popover-foreground: 345 100% 93%;
+    --primary: 323 55% 42%; /* mulberry */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 329 48% 31%; /* raspberry */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 323 30% 32%;
+    --muted-foreground: 345 30% 85%;
+    --accent: 330 100% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 350 85% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 323 30% 36%;
+    --input: 323 30% 36%;
+    --ring: 330 100% 60%;
+    --sidebar-background: 323 44% 24%;
+    --sidebar-foreground: 345 100% 93%;
+    --sidebar-primary: 323 55% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 330 100% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 323 30% 36%;
+    --sidebar-ring: 330 100% 60%;
+    --grad-1: 330 100% 60%;
+    --grad-2: 350 100% 70%;
+    --grad-3: 0 90% 55%;
   }
 }
 
