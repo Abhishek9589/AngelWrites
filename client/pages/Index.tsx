@@ -485,8 +485,8 @@ export default function Index() {
         </Dialog>
 
         {writeOpen && writingPoem && (
-          <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={`Edit poem: ${writingPoem.title}`}>
-            <div className="container mx-auto flex h-full flex-col">
+          <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur overflow-y-auto" role="dialog" aria-modal="true" aria-label={`Edit poem: ${writingPoem.title}`}>
+            <div className="container mx-auto flex h-full min-h-0 flex-col">
               <div className="flex items-center justify-between py-4">
                 <h2 className="text-lg font-semibold">Write: {writingPoem.title}</h2>
                 <div className="flex items-center gap-2">
@@ -496,7 +496,7 @@ export default function Index() {
               </div>
               <div className="flex-1 pb-[3px]">
                 <Suspense fallback={<div className="glass rounded-3xl p-6 text-sm">Loading editor…</div>}>
-                  <RichEditor value={writingContent} onChange={setWritingContent} className="border-2 border-primary" placeholder="Start writing your poem..." />
+                  <RichEditor value={writingContent} onChange={setWritingContent} placeholder="Start writing your poem..." />
                 </Suspense>
               </div>
             </div>

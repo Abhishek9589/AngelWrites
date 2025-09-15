@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Bold, Italic, Strikethrough, List, ListOrdered, Undo2, Redo2, Eraser } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type RichEditorProps = {
   value: string;
@@ -13,6 +14,7 @@ export type RichEditorProps = {
   placeholder?: string;
   toolbarExtras?: React.ReactNode;
 };
+
 
 export default function RichEditor({ value, onChange, className, placeholder, toolbarExtras }: RichEditorProps) {
   const editor = useEditor({
@@ -44,6 +46,7 @@ export default function RichEditor({ value, onChange, className, placeholder, to
   const btn = (active: boolean) => `h-9 px-2 rounded-full ${active ? "bg-primary text-primary-foreground" : "glass-soft"}`;
 
   const hasExtras = !!toolbarExtras;
+
   return (
     <div className={className}>
       <div className="sticky top-0 z-30 px-2 pt-2 mb-4 md:mb-6">
@@ -188,7 +191,7 @@ export default function RichEditor({ value, onChange, className, placeholder, to
           </TooltipProvider>
         </div>
       </div>
-      <div className="glass rounded-3xl">
+      <div className={cn("glass rounded-3xl border-0")}>
         <EditorContent editor={editor} />
       </div>
     </div>
