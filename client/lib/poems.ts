@@ -82,7 +82,7 @@ export function deletePoem(poems: Poem[], id: string): Poem[] {
   return poems.filter((p) => p.id !== id);
 }
 
-export type SortOption = "newest" | "oldest" | "alpha";
+export type SortOption = "newest" | "oldest" | "alpha" | "ztoa";
 
 export function sortPoems(poems: Poem[], sort: SortOption): Poem[] {
   const arr = [...poems];
@@ -91,10 +91,16 @@ export function sortPoems(poems: Poem[], sort: SortOption): Poem[] {
       return arr.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     case "alpha":
       return arr.sort((a, b) => a.title.localeCompare(b.title));
+    case "ztoa":
+      return arr.sort((a, b) => b.title.localeCompare(a.title));
     case "newest":
     default:
       return arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
+}
+
+export function stripHtml(input: string): string {
+  return String(input || "").replace(/<[^>]*>/g, " ");
 }
 
 export function searchPoems(poems: Poem[], query: string): Poem[] {
@@ -102,7 +108,7 @@ export function searchPoems(poems: Poem[], query: string): Poem[] {
   if (!q) return poems;
   return poems.filter((p) =>
     p.title.toLowerCase().includes(q) ||
-    p.content.toLowerCase().includes(q) ||
+    stripHtml(p.content).toLowerCase().includes(q) ||
     p.tags.some((t) => t.toLowerCase().includes(q)),
   );
 }
@@ -128,7 +134,8 @@ export function normalizeTags(tags: string[]): string[] {
 }
 
 export function preview(text: string, max = 140): string {
-  const trimmed = text.replace(/\s+/g, " ").trim();
+  const stripped = stripHtml(text);
+  const trimmed = stripped.replace(/\s+/g, " ").trim();
   return trimmed.length > max ? trimmed.slice(0, max - 1) + "…" : trimmed;
 }
 

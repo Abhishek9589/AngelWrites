@@ -25,7 +25,13 @@ export function ThemeToggle() {
   const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
-    <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={toggle}>
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Toggle theme"
+      onClick={toggle}
+      className="transition-colors hover:bg-primary/15 hover:text-primary"
+    >
       {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </Button>
   );

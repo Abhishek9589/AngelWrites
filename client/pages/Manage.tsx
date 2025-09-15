@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Poem,
   loadPoems,
@@ -10,11 +12,13 @@ import {
   toJSON,
   download,
   savePoems,
+  formatDate,
 } from "@/lib/poems";
-import { createDOCXBlobForPoem, createPDFBlobForPoem } from "@/lib/exporters";
+import { createDOCXBlobForPoem } from "@/lib/exporters";
 import { FileDown, FileJson, Search, Trash2 } from "lucide-react";
 import JSZip from "jszip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function Manage() {
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
@@ -40,9 +44,9 @@ export default function Manage() {
   };
 
   const exportSelectedJSON = () => {
-    if (selected.size === 0) return alert("Select poems first.");
+    if (selected.size === 0) return toast.info("Select poems first.");
     const list = poems.filter((p) => selected.has(p.id));
-    download("angelhub-selected.json", toJSON(list), "application/json");
+    download("AngelWrites-selected.json", toJSON(list), "application/json");
   };
 
   function sanitize(name: string, ext: string) {
@@ -60,29 +64,8 @@ export default function Manage() {
     URL.revokeObjectURL(url);
   }
 
-  async function exportSelectedPDFZip() {
-    if (selected.size === 0) return alert("Select poems first.");
-    const list = poems.filter((p) => selected.has(p.id));
-
-    // If only one poem is selected, download the individual PDF directly (no zip)
-    if (list.length === 1) {
-      const p = list[0];
-      const blob = await createPDFBlobForPoem(p);
-      downloadBlob(sanitize(p.title, "pdf"), blob);
-      return;
-    }
-
-    const zip = new JSZip();
-    for (const p of list) {
-      const blob = await createPDFBlobForPoem(p);
-      zip.file(sanitize(p.title, "pdf"), blob);
-    }
-    const out = await zip.generateAsync({ type: "blob" });
-    downloadBlob("poems-pdf.zip", out);
-  }
-
   async function exportSelectedDOCXZip() {
-    if (selected.size === 0) return alert("Select poems first.");
+    if (selected.size === 0) return toast.info("Select poems first.");
     const list = poems.filter((p) => selected.has(p.id));
 
     // If only one poem is selected, download the individual DOCX directly (no zip)
@@ -103,7 +86,7 @@ export default function Manage() {
   }
 
   function deleteSelected() {
-    if (selected.size === 0) return alert("Select poems first.");
+    if (selected.size === 0) return toast.info("Select poems first.");
     setOpenDelete(true);
   }
   function confirmDelete() {
@@ -114,50 +97,55 @@ export default function Manage() {
 
   return (
     <div className="container py-10">
-      <h1 className="text-2xl font-semibold">Manage</h1>
+      <h1 className="text-2xl font-extrabold gradient-text">Manage</h1>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search poems" className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search poems" className="pl-9" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={toggleAll} className="shrink-0">{allChecked ? "Clear" : "Select All"}</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={exportSelectedJSON} className="gap-2"><FileJson className="h-4 w-4" /> JSON</Button>
-          <Button variant="outline" onClick={exportSelectedPDFZip} className="gap-2"><FileDown className="h-4 w-4" /> PDF</Button>
-          <Button variant="outline" onClick={exportSelectedDOCXZip} className="gap-2"><FileDown className="h-4 w-4" /> DOCX</Button>
+          <Button variant="outline" onClick={exportSelectedJSON} className="gap-2 border-2 border-primary"><FileJson className="h-4 w-4" /> JSON</Button>
+          <Button variant="outline" onClick={exportSelectedDOCXZip} className="gap-2 border-2 border-primary"><FileDown className="h-4 w-4" /> DOCX</Button>
           <Button variant="destructive" onClick={deleteSelected}><Trash2 className="h-4 w-4" aria-label="Delete" /></Button>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left">
-            <tr>
-              <th className="p-3 w-12"><input type="checkbox" checked={allChecked} onChange={toggleAll} /></th>
-              <th className="p-3">Title</th>
-              <th className="p-3 hidden md:table-cell">Date</th>
-              <th className="p-3 hidden sm:table-cell">Tags</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-t">
-                <td className="p-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} /></td>
-                <td className="p-3 font-medium">{p.title}</td>
-                <td className="p-3 hidden md:table-cell">{new Date(p.date).toLocaleDateString()}</td>
-                <td className="p-3 hidden sm:table-cell truncate max-w-[20ch]">{p.tags.join(", ")}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td className="p-6 text-center text-muted-foreground" colSpan={4}>No poems found</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((p) => (
+          <Card
+            key={p.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected.has(p.id)}
+            onClick={() => toggle(p.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } }}
+            className={selected.has(p.id) ? "ring-2 ring-ring bg-white/60 dark:bg-white/15" : ""}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold tracking-tight line-clamp-1">{p.title}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(p.date)}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {p.tags.map((t) => (
+                  <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center text-sm text-muted-foreground py-8">No poems found</div>
+        )}
+      </section>
 
-      <p className="mt-3 text-xs text-muted-foreground">Tip: Use the checkboxes to select poems for actions above.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Tip: Click cards to select. Use Select All to toggle.</p>
 
       <Dialog open={openDelete} onOpenChange={setOpenDelete}>
         <DialogContent>

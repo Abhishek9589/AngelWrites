@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import RichEditor from "@/components/RichEditor";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -43,9 +45,10 @@ import {
   SortOption,
   updatePoem,
 } from "@/lib/poems";
-import { format } from "date-fns";
-import { ArrowDownAZ, ArrowDownWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload } from "lucide-react";
+import { format, parse, isValid } from "date-fns";
+import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload } from "lucide-react";
 import * as mammoth from "mammoth";
+import { toast } from "sonner";
 
 export default function Index() {
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
@@ -74,29 +77,134 @@ export default function Index() {
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState<Poem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [writeOpen, setWriteOpen] = useState(false);
+  const [writingPoem, setWritingPoem] = useState<Poem | null>(null);
+  const [writingContent, setWritingContent] = useState("");
+  const [hasImported, setHasImported] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const title = String(fd.get("title") || "").trim();
-    const content = String(fd.get("content") || "").trim();
-    const date = String(fd.get("date") || format(new Date(), "yyyy-MM-dd"));
-    const tags = normalizeTags(String(fd.get("tags") || "")
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean));
-    const draft = fd.get("draft") === "on";
-    if (!title || !content) return;
+  // Controlled fields for Add/Edit dialog
+  const [formTitle, setFormTitle] = useState("");
+  const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [formTags, setFormTags] = useState("");
+  const [formDraft, setFormDraft] = useState(false);
 
+  useEffect(() => {
+    if (openForm) {
+      setFormTitle(editing?.title ?? "");
+      setFormDate(editing?.date || format(new Date(), "yyyy-MM-dd"));
+      setFormTags(editing ? editing.tags.join(", ") : "");
+      setFormDraft(!!editing?.draft);
+      setTimeout(() => titleRef.current?.focus(), 0);
+    }
+  }, [openForm, editing]);
+
+  const saveWriting = () => {
+    if (writingPoem) {
+      setPoems((prev) => updatePoem(prev, writingPoem.id, { content: writingContent }));
+    }
+    setWriteOpen(false);
+    setWritingPoem(null);
+    setWritingContent("");
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const metaS = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
+      if (writeOpen) {
+        if (metaS) {
+          e.preventDefault();
+          saveWriting();
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setWriteOpen(false);
+          setWritingPoem(null);
+          setWritingContent("");
+          return;
+        }
+      }
+
+      if (openForm) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setOpenForm(false);
+          setEditing(null);
+          return;
+        }
+      }
+
+      if (!openForm && !writeOpen) {
+        if (e.key === "/") {
+          e.preventDefault();
+          searchRef.current?.focus();
+          return;
+        }
+        if (e.key.toLowerCase() === "n") {
+          e.preventDefault();
+          setOpenForm(true);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openForm, writeOpen, writingPoem, writingContent]);
+
+  const applyCreateOrEdit = (title: string, date: string, tags: string[], draft: boolean): boolean => {
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return false;
+    }
     if (editing) {
-      setPoems((prev) => updatePoem(prev, editing.id, { title, content, date, tags, draft }));
+      const nextTitle = title.trim();
+      const prevTitle = editing.title;
+      const prevDate = editing.date || "";
+      const prevDraft = !!editing.draft;
+      const prevTags = editing.tags || [];
+      const sameTitle = nextTitle === prevTitle;
+      const sameDate = (date || "") === prevDate;
+      const sameDraft = !!draft === prevDraft;
+      const sameTags = prevTags.length === tags.length && prevTags.every((t, i) => t === tags[i]);
+      if (sameTitle && sameDate && sameDraft && sameTags) {
+        toast.info("No changes have been made");
+        return false;
+      }
+      setPoems((prev) => updatePoem(prev, editing.id, { title: nextTitle, date, tags, draft }));
+      toast.success("Poem updated");
     } else {
-      const poem = createPoem({ title, content, date, tags, draft });
+      const poem = createPoem({ title: title.trim(), content: "", date, tags, draft });
       setPoems((prev) => [poem, ...prev]);
+      if (!hasImported) {
+        setWritingPoem(poem);
+        setWritingContent("");
+        setWriteOpen(true);
+      }
+      toast.success("Poem created");
     }
     setOpenForm(false);
     setEditing(null);
-    e.currentTarget.reset();
+    return true;
+  };
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const title = (titleRef.current?.value ?? formTitle).toString();
+    const date = (formDate || format(new Date(), "yyyy-MM-dd")).toString();
+    const tags = normalizeTags(formTags.split(",").map((t) => t.trim()).filter(Boolean));
+    const draft = formDraft;
+
+    const ok = applyCreateOrEdit(title, date, tags, draft);
+    if (ok) {
+      setFormTitle("");
+      setFormDate(format(new Date(), "yyyy-MM-dd"));
+      setFormTags("");
+      setFormDraft(false);
+    }
   };
 
   const toggleFavorite = (p: Poem) => {
@@ -130,27 +238,29 @@ export default function Index() {
           imported.forEach((p) => importedMap.set(p.id, p));
           jsonCount += imported.length;
         } catch {
-          alert(`Failed to import JSON file: ${file.name}`);
+          toast.error(`Failed to import JSON file: ${file.name}`);
         }
       } else if (isDOCX) {
         try {
           const arrayBuffer = await file.arrayBuffer();
-          const result = await mammoth.extractRawText({ arrayBuffer });
+          const { docxArrayBufferToHTML } = await import("@/lib/docx");
+          const html = await docxArrayBufferToHTML(arrayBuffer);
+          const { sanitizeHtml } = await import("@/lib/html");
           const title = file.name.replace(/\.docx$/i, "");
           const poem = createPoem({
             title,
-            content: (result.value || "").trim(),
+            content: sanitizeHtml(html),
             date: format(new Date(), "yyyy-MM-dd"),
             tags: [],
           });
           created.push(poem);
         } catch {
-          alert(`Failed to import DOCX file: ${file.name}`);
+          toast.error(`Failed to import DOCX file: ${file.name}`);
         }
       }
     }
     if (jsonCount === 0 && created.length === 0) {
-      alert("No supported files imported. Please select .json or .docx files.");
+      toast.error("No supported files imported. Please select .json or .docx files.");
       return;
     }
     setPoems((prev) => {
@@ -160,21 +270,38 @@ export default function Index() {
       const combined = created.length ? [...created, ...next] : next;
       return sortPoems(combined, sort);
     });
+    setHasImported(true);
+    setOpenForm(false);
+    setEditing(null);
     const parts: string[] = [];
     if (jsonCount) parts.push(`JSON: ${jsonCount}`);
     if (created.length) parts.push(`DOCX: ${created.length}`);
-    alert(`Imported ${parts.join(" and ")}`);
+    toast.success(`Imported ${parts.join(" and ")}`);
   };
 
   return (
-    <main className="container py-6">
+    <main className="container py-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-700">
+        <section className="relative overflow-hidden rounded-3xl p-8 md:p-12 mb-6 glass">
+          <div className="relative z-10">
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight gradient-text">Welcome to AngelWrites</h1>
+            <p className="mt-2 md:mt-3 max-w-2xl text-sm md:text-base text-muted-foreground">A quiet, gentle home for your words. Gather your poems like petals—write when the moment stirs, keep your favorites close, and return to them when the light is right.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Button className="gap-2" onClick={() => setOpenForm(true)}><Plus className="h-4 w-4" /> New Poem</Button>
+              <Button variant="outline" className="gap-2" onClick={() => importRef.current?.click()}><Upload className="h-4 w-4" /> Bring Poems</Button>
+            </div>
+          </div>
+          <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-gradient-to-tr from-cyan-400/40 via-fuchsia-500/30 to-pink-500/30 dark:from-cyan-400/20 dark:via-fuchsia-500/16 dark:to-pink-500/16 blur-3xl"></div>
+          <div className="pointer-events-none absolute -bottom-16 -left-10 h-56 w-56 rounded-full bg-gradient-to-tr from-emerald-300/40 via-cyan-400/30 to-indigo-400/30 dark:from-emerald-300/20 dark:via-cyan-400/16 dark:to-indigo-400/16 blur-3xl"></div>
+        </section>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-1 items-center gap-2">
             <div className="relative w-full md:w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchRef}
                 placeholder="Search by title, tag, or content"
                 className="pl-9"
+                data-variant="search"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
@@ -183,13 +310,14 @@ export default function Index() {
               />
             </div>
             <Select value={sort} onValueChange={(v) => { setSort(v as SortOption); setPage(1); }}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 rounded-2xl border border-white/30 dark:border-white/10 bg-white/40 dark:bg-white/10 backdrop-blur-md focus:ring-0 focus:ring-offset-0 focus:outline-none shadow-sm hover:brightness-105">
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest"><div className="flex items-center gap-2"><ArrowDownWideNarrow className="h-4 w-4" /> Newest</div></SelectItem>
-                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="oldest"><div className="flex items-center gap-2"><ArrowUpWideNarrow className="h-4 w-4" /> Oldest</div></SelectItem>
                 <SelectItem value="alpha"><div className="flex items-center gap-2"><ArrowDownAZ className="h-4 w-4" /> A–Z</div></SelectItem>
+                <SelectItem value="ztoa"><div className="flex items-center gap-2"><ArrowUpAZ className="h-4 w-4" /> Z–A</div></SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -206,22 +334,40 @@ export default function Index() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{editing ? "Edit poem" : "Add a new poem"}</DialogTitle>
-                  <DialogDescription>Title, content, date, and tags (comma separated). Optionally mark as draft.</DialogDescription>
+                  <DialogDescription>Provide title, date, tags (comma separated), and draft. After creating, a full-screen editor opens to write the poem.</DialogDescription>
                 </DialogHeader>
-                <form className="grid gap-3" onSubmit={onSubmit}>
-                  <Input name="title" placeholder="Title" defaultValue={editing?.title} required />
-                  <Textarea name="content" placeholder="Poem content" defaultValue={editing?.content} required rows={8} />
+                <form ref={formRef} className="grid gap-3" onSubmit={onSubmit}>
+                  <Input ref={titleRef} name="title" placeholder="Title" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
                   <div className="flex gap-3">
-                    <Input name="date" type="date" className="w-40" defaultValue={editing?.date || format(new Date(), "yyyy-MM-dd")} />
-                    <Input name="tags" placeholder="Tags (comma separated)" defaultValue={editing?.tags.join(", ") || ""} />
+                    <Input name="date" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-40 focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
+                    <Input name="tags" placeholder="Tags (comma separated)" value={formTags} onChange={(e) => setFormTags(e.target.value)} className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
                   </div>
-                  <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                    <input type="checkbox" name="draft" defaultChecked={!!editing?.draft} /> Draft
-                  </label>
+                  <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                    <Checkbox id="draft" name="draft" checked={formDraft} onCheckedChange={(v) => setFormDraft(!!v)} className="h-5 w-5" />
+                    <Label htmlFor="draft" className="text-sm text-muted-foreground">Draft</Label>
+                  </div>
+                  <button type="submit" className="hidden" aria-hidden="true" />
                   <DialogFooter>
                     <div className="flex-1" />
-                    <Button type="button" variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><Upload className="h-4 w-4" /> Import</Button>
-                    <Button type="submit">{editing ? "Save Changes" : "Create Poem"}</Button>
+                    <Button type="button" variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><Upload className="h-4 w-4" /> Bring Poems</Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const title = (titleRef.current?.value ?? formTitle).toString();
+                        const draft = formDraft;
+                        const tags = normalizeTags(formTags.split(",").map((t) => t.trim()).filter(Boolean));
+                        const date = formDate || format(new Date(), "yyyy-MM-dd");
+                        const ok = applyCreateOrEdit(title, date, tags, draft);
+                        if (ok) {
+                          setFormTitle("");
+                          setFormDate(format(new Date(), "yyyy-MM-dd"));
+                          setFormTags("");
+                          setFormDraft(false);
+                        }
+                      }}
+                    >
+                      {editing ? "Save Changes" : "Create Poem"}
+                    </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
@@ -250,6 +396,7 @@ export default function Index() {
           </div>
         )}
 
+
         <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginated.map((p) => (
             <Card key={p.id} className="group relative overflow-hidden">
@@ -272,7 +419,6 @@ export default function Index() {
                         <Button size="icon" variant="ghost" aria-label="Actions"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditing(p); setOpenForm(true); }}>Edit</DropdownMenuItem>
                         <DropdownMenuItem asChild><Link to={`/poem/${p.id}`}>Open</Link></DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(p.id)}>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -296,20 +442,7 @@ export default function Index() {
           ))}
         </section>
 
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <p className="text-sm text-muted-foreground">
-            {filtered.length > 0 ? `Showing ${start + 1}–${Math.min(start + paginated.length, filtered.length)} of ${filtered.length} poems` : "Showing 0 of 0 poems"}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
-            <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
-          </div>
-        </div>
 
-        {poems.length === 0 && (
-          <EmptyState onCreate={() => setOpenForm(true)} />)
-        }
 
         <Dialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
           <DialogContent>
@@ -324,26 +457,63 @@ export default function Index() {
           </DialogContent>
         </Dialog>
 
-        <footer className="mt-10 py-8 text-center text-xs text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <span>© {new Date().getFullYear()} angelhub</span>
-            <span>·</span>
-            <span>Modern poetry manager</span>
+        {writeOpen && writingPoem && (
+          <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur">
+            <div className="container mx-auto flex h-full flex-col">
+              <div className="flex items-center justify-between py-4">
+                <h2 className="text-lg font-semibold">Write: {writingPoem.title}</h2>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => { setWriteOpen(false); setWritingPoem(null); setWritingContent(""); }}>Close</Button>
+                  <Button onClick={saveWriting}>Save</Button>
+                </div>
+              </div>
+              <div className="flex-1 pb-[3px]">
+                <RichEditor value={writingContent} onChange={setWritingContent} className="border-2 border-primary" placeholder="Start writing your poem..." />
+              </div>
+            </div>
           </div>
-        </footer>
-    </main>
-  );
-}
+        )}
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
-    <div className="mt-16 flex flex-col items-center justify-center gap-4 text-center">
-      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-fuchsia-500 opacity-80" />
-      <h2 className="text-xl font-semibold">Start your poetry collection</h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        Add your first poem. Use tags like Love, Nature, Life to organize. Favorites help you pin special pieces.
-      </p>
-      <Button onClick={onCreate} className="gap-2"><Plus className="h-4 w-4" /> New Poem</Button>
-    </div>
+        {totalPages > 1 && (
+          <div className="fixed bottom-4 right-4 z-40">
+            <div className="flex items-center gap-2 rounded-md border bg-background/95 px-3 py-2 shadow-lg">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <label htmlFor="pageInput" className="sr-only">Page</label>
+                <input
+                  id="pageInput"
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (!Number.isNaN(n)) setPage(Math.min(Math.max(1, n), totalPages));
+                  }}
+                  onBlur={(e) => {
+                    const n = Number(e.target.value);
+                    if (!Number.isNaN(n)) setPage(Math.min(Math.max(1, n), totalPages));
+                  }}
+                  onKeyUp={(e) => {
+                    if (e.key === "Enter") {
+                      const n = Number((e.target as HTMLInputElement).value);
+                      if (!Number.isNaN(n)) setPage(Math.min(Math.max(1, n), totalPages));
+                    }
+                  }}
+                  className="w-14 rounded-2xl border bg-background px-2 py-1 text-center text-sm"
+                />
+                <span>/ {totalPages}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+            </div>
+          </div>
+        )}
+
+    </main>
   );
 }
