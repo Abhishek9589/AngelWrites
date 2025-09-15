@@ -12,6 +12,8 @@ import {
   loadPoems,
   savePoems,
   updatePoem,
+  updatePoemWithVersion,
+  restoreVersion,
   deletePoem,
   normalizeTags,
 } from "@/lib/poems";
@@ -26,6 +28,7 @@ export default function PoemDetail() {
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
+  const [openHistory, setOpenHistory] = useState(false);
 
   // Local edit state for full-screen editor
   const [editTitle, setEditTitle] = useState("");
@@ -64,6 +67,16 @@ export default function PoemDetail() {
       setRenaming(false);
     }
   }, [poem, openEdit]);
+
+  // Autosave content while editing (debounced)
+  useEffect(() => {
+    if (!poem || !openEdit) return;
+    if (editContent === poem.content) return;
+    const t = window.setTimeout(() => {
+      setPoems((prev) => updatePoemWithVersion(prev, poem.id, { content: editContent }, { snapshot: true, max: 30 }));
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [editContent, openEdit, poem]);
 
   // Lock background scroll when the editor overlay is open
   useEffect(() => {
@@ -111,6 +124,7 @@ export default function PoemDetail() {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => exportPoemsToDOCX([poem], `${poem.title}.docx`)} className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><FileDown className="h-4 w-4" /> DOCX</Button>
           <Button variant="outline" className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setOpenEdit(true)}><Edit className="h-4 w-4" /> Edit</Button>
+          <Button variant="outline" className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setOpenHistory(true)}>History</Button>
           <Button variant="destructive" size="icon" aria-label="Delete" onClick={() => setOpenDelete(true)}><Trash className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={toggleFavorite} aria-label={poem.favorite ? "Unfavorite" : "Favorite"}>
             {poem.favorite ? <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> : <StarOff className="h-4 w-4" />}
@@ -190,7 +204,7 @@ export default function PoemDetail() {
                     />
                   </div>
                   <div className="flex items-center gap-2 md:ml-2">
-                    <span className="hidden md:inline text-xs text-muted-foreground">Ctrl/⌘ + S</span>
+                    <span className="hidden md:inline text-xs text-muted-foreground">Autosaving…</span>
                     <Button variant="outline" onClick={() => setOpenEdit(false)}>Close</Button>
                     <Button onClick={saveEdits}>Save</Button>
                   </div>
@@ -210,6 +224,39 @@ export default function PoemDetail() {
           </div>
         </div>
       )}
+      <Dialog open={openHistory} onOpenChange={setOpenHistory}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Version history</DialogTitle>
+            <DialogDescription>Restore an earlier version of this poem.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto space-y-2">
+            {(poem.versions || []).slice().reverse().map((v) => (
+              <div key={v.id} className="rounded-md border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm text-muted-foreground">{new Date(v.ts).toLocaleString()}</div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPoems((prev) => restoreVersion(prev, poem.id, v.id));
+                        setOpenHistory(false);
+                      }}
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-2 line-clamp-3 text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: v.content }} />
+              </div>
+            ))}
+            {(poem.versions || []).length === 0 && (
+              <div className="text-sm text-muted-foreground">No versions yet. Versions are created automatically while editing.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

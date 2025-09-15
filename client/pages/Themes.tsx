@@ -26,6 +26,11 @@ export default function Themes() {
   }, []);
 
   const items = useMemo(() => PRESETS, []);
+  const [hovering, setHovering] = useState<PresetKey | null>(null);
+  const applyPreview = (key: PresetKey | null) => {
+    if (!key) document.documentElement.dataset.theme = active;
+    else document.documentElement.dataset.theme = key;
+  };
 
   return (
     <main className="container py-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-700">
@@ -43,6 +48,8 @@ export default function Themes() {
             key={p.key}
             className={cn("overflow-hidden group bg-transparent", active === p.key && "ring-2 ring-ring")}
             style={{ background: `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]}, ${p.swatch[2]})` }}
+            onMouseEnter={() => { setHovering(p.key as PresetKey); applyPreview(p.key as PresetKey); }}
+            onMouseLeave={() => { setHovering(null); applyPreview(null); }}
           >
             <CardContent className="p-0">
               <div className="p-4 flex items-start justify-between">

@@ -1,5 +1,14 @@
 import { format } from "date-fns";
 
+export type VersionSnapshot = {
+  id: string;
+  ts: number;
+  title: string;
+  content: string;
+  date: string;
+  tags: string[];
+};
+
 export type Poem = {
   id: string;
   title: string;
@@ -10,6 +19,7 @@ export type Poem = {
   draft?: boolean;
   createdAt: number;
   updatedAt: number;
+  versions?: VersionSnapshot[];
 };
 
 export type PoemInput = {
@@ -21,13 +31,41 @@ export type PoemInput = {
 };
 
 const STORAGE_KEY = "angelhub.poems.v1";
+const STORAGE_FALLBACK_KEYS = [
+  "angelhub.poems.v1",
+  "angelhub.poems",
+  "angelhub.poems.v0",
+  "poems",
+] as const;
 
 export function loadPoems(): Poem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw: string | null = null;
+    let usedKey: string | null = null;
+    for (const k of STORAGE_FALLBACK_KEYS) {
+      raw = localStorage.getItem(k);
+      if (raw) { usedKey = k; break; }
+    }
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as Poem[];
-    return Array.isArray(parsed) ? parsed : [];
+
+    let parsed: Poem[] = [];
+    try {
+      const obj = JSON.parse(raw);
+      if (Array.isArray(obj)) parsed = obj as Poem[];
+      else if (obj && Array.isArray((obj as any).poems)) parsed = (obj as any).poems as Poem[];
+      else parsed = [];
+    } catch {
+      parsed = [];
+    }
+
+    if (!Array.isArray(parsed)) parsed = [];
+
+    // Migrate to current key if read from a fallback
+    if (usedKey && usedKey !== STORAGE_KEY) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } catch {}
+    }
+
+    return parsed;
   } catch (e) {
     console.error("Failed to load poems", e);
     return [];
@@ -73,6 +111,65 @@ export function updatePoem(poems: Poem[], id: string, patch: Partial<Poem>): Poe
   const idx = poems.findIndex((p) => p.id === id);
   if (idx === -1) return poems;
   const updated: Poem = { ...poems[idx], ...patch, updatedAt: Date.now() };
+  const next = [...poems];
+  next[idx] = updated;
+  return next;
+}
+
+export function updatePoemWithVersion(
+  poems: Poem[],
+  id: string,
+  patch: Partial<Poem>,
+  opts?: { snapshot?: boolean; max?: number }
+): Poem[] {
+  const idx = poems.findIndex((p) => p.id === id);
+  if (idx === -1) return poems;
+  const original = poems[idx];
+  const snapshotWanted = opts?.snapshot !== false;
+  const max = Math.max(1, opts?.max ?? 30);
+
+  const fieldsToTrack: (keyof Poem)[] = ["title", "content", "date", "tags"];
+  const willChange = fieldsToTrack.some((k) => (patch as any)[k] !== undefined && JSON.stringify((patch as any)[k]) !== JSON.stringify((original as any)[k]));
+
+  let versions = Array.isArray(original.versions) ? [...original.versions] : [];
+  if (snapshotWanted && willChange) {
+    const last = versions[versions.length - 1];
+    const prevSnap: VersionSnapshot = {
+      id: generateId(),
+      ts: Date.now(),
+      title: original.title,
+      content: original.content,
+      date: original.date,
+      tags: [...original.tags],
+    };
+    const isDuplicate = last && last.title === prevSnap.title && last.content === prevSnap.content && last.date === prevSnap.date && JSON.stringify(last.tags) === JSON.stringify(prevSnap.tags);
+    if (!isDuplicate) {
+      versions.push(prevSnap);
+      if (versions.length > max) versions = versions.slice(versions.length - max);
+    }
+  }
+
+  const updated: Poem = { ...original, ...patch, versions, updatedAt: Date.now() };
+  const next = [...poems];
+  next[idx] = updated;
+  return next;
+}
+
+export function restoreVersion(poems: Poem[], id: string, versionId: string): Poem[] {
+  const idx = poems.findIndex((p) => p.id === id);
+  if (idx === -1) return poems;
+  const p = poems[idx];
+  const versions = [...(p.versions || [])];
+  const snap = versions.find((v) => v.id === versionId);
+  if (!snap) return poems;
+  const updated: Poem = {
+    ...p,
+    title: snap.title,
+    content: snap.content,
+    date: snap.date,
+    tags: [...snap.tags],
+    updatedAt: Date.now(),
+  };
   const next = [...poems];
   next[idx] = updated;
   return next;

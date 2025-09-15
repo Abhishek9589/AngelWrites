@@ -44,9 +44,10 @@ import {
   sortPoems,
   SortOption,
   updatePoem,
+  updatePoemWithVersion,
 } from "@/lib/poems";
 import { format, parse, isValid } from "date-fns";
-import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload, Link as LinkIcon, Trash2 } from "lucide-react";
 import * as mammoth from "mammoth";
 import { toast } from "sonner";
 
@@ -103,12 +104,23 @@ export default function Index() {
 
   const saveWriting = () => {
     if (writingPoem) {
-      setPoems((prev) => updatePoem(prev, writingPoem.id, { content: writingContent }));
+      setPoems((prev) => updatePoemWithVersion(prev, writingPoem.id, { content: writingContent }, { snapshot: true }));
     }
     setWriteOpen(false);
     setWritingPoem(null);
     setWritingContent("");
   };
+
+  // Autosave while writing (debounced)
+  useEffect(() => {
+    if (!writeOpen || !writingPoem) return;
+    const t = window.setTimeout(() => {
+      if (writingContent !== writingPoem.content) {
+        setPoems((prev) => updatePoemWithVersion(prev, writingPoem.id, { content: writingContent }, { snapshot: true }));
+      }
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [writeOpen, writingPoem, writingContent]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -397,6 +409,18 @@ export default function Index() {
         )}
 
 
+        {filtered.length === 0 && (
+          <div className="mt-10 rounded-3xl glass p-8 text-center">
+            <h2 className="text-xl font-semibold">No poems yet</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Start by creating a poem or import from JSON/DOCX. You can tag poems for easy filtering later.</p>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <Button onClick={() => setOpenForm(true)} className="gap-2"><Plus className="h-4 w-4" /> New Poem</Button>
+              <Button variant="outline" onClick={() => importRef.current?.click()} className="gap-2"><Upload className="h-4 w-4" /> Import</Button>
+            </div>
+          </div>
+        )}
+
+        {filtered.length > 0 && (
         <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {paginated.map((p) => (
             <Card key={p.id} className="group relative overflow-hidden">
@@ -414,6 +438,12 @@ export default function Index() {
                     >
                       {p.favorite ? <Star className="h-4 w-4 fill-yellow-500" /> : <StarOff className="h-4 w-4" />}
                     </button>
+                    <Button size="icon" variant="ghost" aria-label="Copy link" onClick={() => navigator.clipboard.writeText(`${location.origin}/poem/${p.id}`)}>
+                      <LinkIcon className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" aria-label="Delete" onClick={() => handleDelete(p.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button size="icon" variant="ghost" aria-label="Actions"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -441,6 +471,7 @@ export default function Index() {
             </Card>
           ))}
         </section>
+        )}
 
 
 

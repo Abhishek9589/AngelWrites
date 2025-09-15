@@ -29,6 +29,12 @@ function Layout() {
     document.title = `${title} - Poetry Manager`;
   }, [title]);
 
+  useEffect(() => {
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  }, []);
+
 
   return (
     <div className="min-h-screen pt-24">
