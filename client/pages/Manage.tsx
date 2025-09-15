@@ -15,7 +15,7 @@ import {
   formatDate,
 } from "@/lib/poems";
 import { createDOCXBlobForPoem } from "@/lib/exporters";
-import { FileDown, FileJson, Search, Trash2 } from "lucide-react";
+import { FileDown, FileJson, Trash2 } from "lucide-react";
 import JSZip from "jszip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -102,8 +102,7 @@ export default function Manage() {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative w-full sm:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search poems" className="pl-9" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Input type="search" placeholder="Search poems" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <Button variant="outline" onClick={toggleAll} className="shrink-0">{allChecked ? "Clear" : "Select All"}</Button>
         </div>

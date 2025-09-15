@@ -417,6 +417,12 @@ body::before {
   100% { transform: translate3d(2%, -2%, 0) scale(1.05); }
 }
 
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  body::before { animation: none !important; }
+}
+
 /* Utilities */
 @layer utilities {
   .glass {

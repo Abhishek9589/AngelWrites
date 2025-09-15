@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { loadPoems, Poem, savePoems, updatePoem, formatDate } from "@/lib/poems";
-import { Search, Star, StarOff } from "lucide-react";
+import { loadPoems, Poem, savePoems, updatePoem, formatDate, preview } from "@/lib/poems";
+import { Star, StarOff } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Favorites() {
@@ -31,8 +31,7 @@ export default function Favorites() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold gradient-text">Favorites</h1>
         <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search favorites" className="pl-9" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input type="search" placeholder="Search favorites" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </div>
 
@@ -53,7 +52,7 @@ export default function Favorites() {
                   <Star className="h-4 w-4 fill-yellow-500" />
                 </button>
               </div>
-              <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{p.content}</p>
+              <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{preview(p.content, 220)}</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {p.tags.map((t) => (
                   <Badge key={t} variant="secondary">{t}</Badge>

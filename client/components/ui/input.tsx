@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Search as SearchIcon } from "lucide-react";
 import { format, parse, parseISO, isValid } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -89,18 +89,34 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
       );
     }
 
-    return (
+    const isSearch = type === "search" || (props as any)["data-variant"] === "search";
+
+    const inputClasses = cn(
+      "flex h-10 w-full rounded-2xl border border-white/30 dark:border-white/10 bg-white/40 dark:bg-white/10 px-3 py-2 text-base backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm [color-scheme:light] dark:[color-scheme:dark]",
+      isSearch && "pl-9",
+      ringClasses,
+      className,
+    );
+
+    const inputEl = (
       <input
         type={type}
-        className={cn(
-          "flex h-10 w-full rounded-2xl border border-white/30 dark:border-white/10 bg-white/40 dark:bg-white/10 px-3 py-2 text-base backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm [color-scheme:light] dark:[color-scheme:dark]",
-          ringClasses,
-          className,
-        )}
+        className={inputClasses}
         ref={forwardedRef}
         {...props}
       />
     );
+
+    if (isSearch) {
+      return (
+        <div className="relative">
+          <SearchIcon aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/70 pointer-events-none z-10" />
+          {inputEl}
+        </div>
+      );
+    }
+
+    return inputEl;
   },
 );
 Input.displayName = "Input";
