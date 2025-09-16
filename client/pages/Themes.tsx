@@ -54,7 +54,7 @@ export default function Themes() {
             <CardContent className="p-0">
               <div className="p-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-900">{p.label}</h3>
+                  <h3 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-900">{p.label}</h3>
                   <div className="mt-2 flex items-center gap-1">
                     {p.swatch.map((c, i) => (
                       <span key={i} className="h-4 w-6 rounded-md border border-black/10 dark:border-white/10" style={{ background: c }} />

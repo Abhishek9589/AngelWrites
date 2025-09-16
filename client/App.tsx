@@ -14,6 +14,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { buttonVariants } from "@/components/ui/button";
 import { loadSiteTitle } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { LoadingScreen } from "@/components/ui/loading";
+import { POET_SARCASTIC_MESSAGES } from "@/lib/messages";
 
 const PoemDetail = lazy(() => import("./pages/PoemDetail"));
 const Favorites = lazy(() => import("./pages/Favorites"));
@@ -69,11 +71,11 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Index />} />
-            <Route path="poem/:id" element={<Suspense fallback={<div className="p-6">Loading…</div>}><PoemDetail /></Suspense>} />
-            <Route path="favorites" element={<Suspense fallback={<div className="p-6">Loading…</div>}><Favorites /></Suspense>} />
-            <Route path="dashboard" element={<Suspense fallback={<div className="p-6">Loading…</div>}><Dashboard /></Suspense>} />
-            <Route path="manage" element={<Suspense fallback={<div className="p-6">Loading…</div>}><Manage /></Suspense>} />
-            <Route path="themes" element={<Suspense fallback={<div className="p-6">Loading…</div>}><Themes /></Suspense>} />
+            <Route path="poem/:id" element={<Suspense fallback={<LoadingScreen messages={POET_SARCASTIC_MESSAGES} />}><PoemDetail /></Suspense>} />
+            <Route path="favorites" element={<Suspense fallback={<LoadingScreen messages={POET_SARCASTIC_MESSAGES} />}><Favorites /></Suspense>} />
+            <Route path="dashboard" element={<Suspense fallback={<LoadingScreen messages={POET_SARCASTIC_MESSAGES} />}><Dashboard /></Suspense>} />
+            <Route path="manage" element={<Suspense fallback={<LoadingScreen messages={POET_SARCASTIC_MESSAGES} />}><Manage /></Suspense>} />
+            <Route path="themes" element={<Suspense fallback={<LoadingScreen messages={POET_SARCASTIC_MESSAGES} />}><Themes /></Suspense>} />
             <Route path="backup" element={<Navigate to="/manage" replace />} />
           </Route>
           <Route path="*" element={<NotFound />} />
