@@ -28,9 +28,9 @@ export default function Favorites() {
 
   return (
     <div className="container py-10">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-extrabold gradient-text">Favorites</h1>
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Input type="search" placeholder="Search favorites" data-variant="search" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </div>

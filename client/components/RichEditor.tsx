@@ -50,10 +50,10 @@ export default function RichEditor({ value, onChange, className, placeholder, to
   return (
     <div className={className}>
       <div className="sticky top-0 z-30 px-2 pt-2 mb-4 md:mb-6">
-        <div className={`mx-auto flex items-center ${hasExtras ? "justify-between" : "justify-center"} gap-3 rounded-full border border-white/30 dark:border-white/10 bg-white/50 dark:bg-white/10 px-2 py-1 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.06)]`}>
+        <div className={`mx-auto flex flex-nowrap items-center ${hasExtras ? "justify-between" : "justify-start"} gap-1.5 whitespace-nowrap rounded-full border border-white/30 dark:border-white/10 bg-white/50 dark:bg-white/10 px-3 py-1 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-x-auto no-scrollbar`}>
           {hasExtras && <div className="flex items-center gap-3 min-w-0">{toolbarExtras}</div>}
           <TooltipProvider delayDuration={150}>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 pl-2 pr-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

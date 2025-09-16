@@ -119,16 +119,105 @@ export default function PoemDetail() {
 
   return (
     <div className="container py-6">
-      <div className="flex items-center justify-between">
-        <BackButton />
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => exportPoemsToDOCX([poem], `${poem.title}.docx`)} className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><FileDown className="h-4 w-4" /> DOCX</Button>
-          <Button variant="outline" className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setOpenEdit(true)}><Edit className="h-4 w-4" /> Edit</Button>
-          <Button variant="outline" className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0" onClick={() => setOpenHistory(true)}>History</Button>
-          <Button variant="destructive" size="icon" aria-label="Delete" onClick={() => setOpenDelete(true)}><Trash className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={toggleFavorite} aria-label={poem.favorite ? "Unfavorite" : "Favorite"}>
-            {poem.favorite ? <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" /> : <StarOff className="h-4 w-4" />}
-          </Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Mobile layout: 2 rows */}
+        <div className="sm:hidden w-full flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <BackButton />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                onClick={() => setOpenHistory(true)}
+              >
+                History
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleFavorite}
+                aria-label={poem.favorite ? "Unfavorite" : "Favorite"}
+              >
+                {poem.favorite ? (
+                  <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                ) : (
+                  <StarOff className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => exportPoemsToDOCX([poem], `${poem.title}.docx`)}
+              className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            >
+              <FileDown className="h-4 w-4" /> DOCX
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              onClick={() => setOpenEdit(true)}
+            >
+              <Edit className="h-4 w-4" /> Edit
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              aria-label="Delete"
+              onClick={() => setOpenDelete(true)}
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Desktop layout */}
+        <div className="hidden sm:flex w-full items-center justify-between gap-2">
+          <BackButton />
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => exportPoemsToDOCX([poem], `${poem.title}.docx`)}
+              className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            >
+              <FileDown className="h-4 w-4" /> DOCX
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              onClick={() => setOpenEdit(true)}
+            >
+              <Edit className="h-4 w-4" /> Edit
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-2 border-primary focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              onClick={() => setOpenHistory(true)}
+            >
+              History
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              aria-label="Delete"
+              onClick={() => setOpenDelete(true)}
+            >
+              <Trash className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleFavorite}
+              aria-label={poem.favorite ? "Unfavorite" : "Favorite"}
+            >
+              {poem.favorite ? (
+                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+              ) : (
+                <StarOff className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
 
         <Dialog open={openDelete} onOpenChange={setOpenDelete}>
@@ -160,7 +249,7 @@ export default function PoemDetail() {
       {openEdit && (
         <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-xl overflow-y-auto">
           <div className="container mx-auto flex min-h-full flex-col gap-3 py-4">
-            <div className="sticky top-3 z-50 rounded-2xl glass px-4 py-3">
+            <div className="rounded-2xl glass px-4 py-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   {!renaming ? (
@@ -230,7 +319,7 @@ export default function PoemDetail() {
             <DialogTitle>Version history</DialogTitle>
             <DialogDescription>Restore an earlier version of this poem.</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto space-y-2">
+          <div className="max-h-[70vh] overflow-y-auto space-y-2">
             {(poem.versions || []).slice().reverse().map((v) => (
               <div key={v.id} className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-2">

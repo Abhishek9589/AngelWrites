@@ -11,6 +11,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Analytics } from "@vercel/analytics/react";
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { loadSiteTitle } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -47,14 +49,40 @@ function Layout() {
             <img src="https://cdn.builder.io/api/v1/image/assets%2Faddb4921f9a9401eae5d6e57d8e51a79%2F11516b0de05449e998114111d9a9fa80?format=webp&width=64" alt={title} className="h-8 w-8 object-contain" />
             <span className="text-lg font-extrabold tracking-tight gradient-text">{title}</span>
           </Link>
-          <nav className="flex items-center gap-2" aria-label="Primary navigation">
-            <NavLink end to="/" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Home</NavLink>
-            <NavLink to="/favorites" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Favorites</NavLink>
-            <NavLink to="/dashboard" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Dashboard</NavLink>
-            <NavLink to="/manage" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Manage</NavLink>
-            <NavLink to="/themes" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Themes</NavLink>
+          <div className="flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-2" aria-label="Primary navigation">
+              <NavLink end to="/" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Home</NavLink>
+              <NavLink to="/favorites" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Favorites</NavLink>
+              <NavLink to="/dashboard" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Dashboard</NavLink>
+              <NavLink to="/manage" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Manage</NavLink>
+              <NavLink to="/themes" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "ghost", size: "default" }), !isActive && "hover:bg-transparent border border-transparent hover:border-black/20 dark:hover:border-white/25")}>Themes</NavLink>
+            </nav>
             <ThemeToggle />
-          </nav>
+            <Sheet>
+              <SheetTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "md:hidden")} aria-label="Open menu">
+                <Menu className="h-5 w-5" />
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80">
+                <div className="mt-6 grid gap-2">
+                  <SheetClose asChild>
+                    <NavLink end to="/" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "outline", size: "lg" }))}>Home</NavLink>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <NavLink to="/favorites" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "outline", size: "lg" }))}>Favorites</NavLink>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <NavLink to="/dashboard" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "outline", size: "lg" }))}>Dashboard</NavLink>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <NavLink to="/manage" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "outline", size: "lg" }))}>Manage</NavLink>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <NavLink to="/themes" className={({ isActive }) => cn(buttonVariants({ variant: isActive ? "default" : "outline", size: "lg" }))}>Themes</NavLink>
+                  </SheetClose>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
       <Outlet />

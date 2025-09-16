@@ -334,9 +334,9 @@ export default function Index() {
         </section>
 
         {poems.length > 0 && (
-        <div className="flex items-center justify-center">
-          <div className="flex items-center justify-center gap-2">
-            <div className="relative w-72 md:w-96">
+        <div className="mx-auto w-full max-w-2xl px-4">
+          <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <div className="relative w-full">
               <Input
                 ref={searchRef}
                 type="search"
@@ -351,7 +351,7 @@ export default function Index() {
               />
             </div>
             <Select value={sort} onValueChange={(v) => { setSort(v as SortOption); setPage(1); }}>
-              <SelectTrigger aria-label="Sort poems" className="w-48 rounded-2xl border border-white/30 dark:border-white/10 bg-white/40 dark:bg-white/10 backdrop-blur-md focus:ring-0 focus:ring-offset-0 focus:outline-none shadow-sm hover:brightness-105">
+              <SelectTrigger aria-label="Sort poems" className="w-full sm:w-48 rounded-2xl border border-white/30 dark:border-white/10 bg-white/40 dark:bg-white/10 backdrop-blur-md focus:ring-0 focus:ring-offset-0 focus:outline-none shadow-sm hover:brightness-105">
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
@@ -379,9 +379,9 @@ export default function Index() {
             </DialogHeader>
             <form ref={formRef} className="grid gap-3" onSubmit={onSubmit}>
               <Input ref={titleRef} name="title" placeholder="Title" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
-              <div className="flex gap-3">
-                <Input name="date" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-40 focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
-                <Input name="tags" placeholder="Tags (comma separated)" value={formTags} onChange={(e) => setFormTags(e.target.value)} className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Input name="date" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full sm:w-40 focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
+                <Input name="tags" placeholder="Tags (comma separated)" value={formTags} onChange={(e) => setFormTags(e.target.value)} className="w-full focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:ring-offset-0" />
               </div>
               <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Checkbox id="draft" name="draft" checked={formDraft} onCheckedChange={(v) => setFormDraft(!!v)} className="h-5 w-5" />
@@ -527,8 +527,8 @@ export default function Index() {
         )}
 
         {totalPages > 1 && (
-          <div className="fixed bottom-4 right-4 z-40">
-            <div className="flex items-center gap-2 rounded-md border bg-background/95 px-3 py-2 shadow-lg">
+          <div className="fixed bottom-2 left-1/2 z-40 -translate-x-1/2 w-[min(95vw,420px)] sm:bottom-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:w-auto">
+            <div className="flex items-center gap-2 rounded-md border bg-background/95 px-3 py-2 shadow-lg w-full sm:w-auto justify-center sm:justify-start">
               <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <label htmlFor="pageInput" className="sr-only">Page</label>

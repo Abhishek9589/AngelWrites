@@ -34,7 +34,7 @@ export default function Themes() {
 
   return (
     <main className="container py-10 animate-in fade-in-0 slide-in-from-bottom-2 duration-700">
-      <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 glass mb-6 flex items-center justify-between">
+      <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 glass mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Themes</h1>
           <p className="mt-2 text-sm text-muted-foreground">Pick a color palette. Your choice is saved and applies across the app. Use the toggle to switch Light/Dark.</p>
