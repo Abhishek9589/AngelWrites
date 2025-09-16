@@ -101,6 +101,10 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
     const inputEl = (
       <input
         type={type}
+        name={name}
+        value={value}
+        defaultValue={defaultValue}
+        onChange={onChange}
         className={inputClasses}
         ref={forwardedRef}
         {...props}
