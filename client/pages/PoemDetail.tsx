@@ -21,6 +21,7 @@ import { exportPoemsToDOCX } from "@/lib/exporters";
 import BackButton from "@/components/BackButton";
 import { Edit, Star, StarOff, Trash, FileDown, Pencil } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
+import EditorFooterStats from "@/components/EditorFooterStats";
 
 export default function PoemDetail() {
   const { id } = useParams<{ id: string }>();
@@ -346,31 +347,6 @@ export default function PoemDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function EditorFooterStats({ content }: { content: string }) {
-  const withoutTags = String(content || "")
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"');
-  const text = withoutTags.replace(/\s+/g, " ").trim();
-  const words = text ? text.split(" ").length : 0;
-  const chars = text.length;
-
-  return (
-    <div className="sticky bottom-3 z-50 mx-auto max-w-3xl">
-      <div className="glass-soft rounded-full px-4 py-2 text-xs flex items-center justify-between gap-4">
-        <span className="text-muted-foreground">{words} words</span>
-        <span className="text-muted-foreground">{chars} characters</span>
-      </div>
     </div>
   );
 }

@@ -4,29 +4,67 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLocation } from "react-router-dom";
 
-function getInitialPreset(): PresetKey {
-  const stored = localStorage.getItem("themePreset") as PresetKey | null;
-  return stored || (document.documentElement.dataset.theme as PresetKey) || "pastel";
+function getMode(): "light" | "dark" {
+  const root = document.documentElement;
+  return root.classList.contains("dark") ? "dark" : "light";
 }
 
-function applyPreset(preset: PresetKey) {
-  const root = document.documentElement;
-  root.dataset.theme = preset;
-  localStorage.setItem("themePreset", preset);
+function getStoredPreset(ctx: "poem" | "book"): PresetKey {
+  const key = `themePreset_${ctx}`;
+  const stored = localStorage.getItem(key) as PresetKey | null;
+  const validKeys = PRESETS.map((p) => p.key) as PresetKey[];
+  if (stored && validKeys.includes(stored)) return stored;
+  return "pastel" as PresetKey;
+}
+
+function applyPresetFor(_mode: "light" | "dark", ctx: "poem" | "book", preset: PresetKey) {
+  const storageKey = `themePreset_${ctx}`;
+  localStorage.setItem(storageKey, preset);
+  const currentCtx = document.location.pathname.startsWith("/book") ? "book" : "poem";
+  if (currentCtx === ctx) {
+    document.documentElement.dataset.theme = preset;
+  }
 }
 
 export default function Themes() {
-  const [active, setActive] = useState<PresetKey>(() => getInitialPreset());
+  const location = useLocation();
+  const currentCtx: "poem" | "book" = location.pathname.startsWith("/book") ? "book" : "poem";
+  const [mode, setMode] = useState<"light" | "dark">(() => getMode());
+  const [activePoem, setActivePoem] = useState<PresetKey>(() => getStoredPreset("poem"));
+  const [activeBook, setActiveBook] = useState<PresetKey>(() => getStoredPreset("book"));
 
   useEffect(() => {
-    // Sync with current document on mount
-    const current = (document.documentElement.dataset.theme as PresetKey) || "pastel";
-    setActive(current);
-  }, []);
+    const root = document.documentElement;
+    const update = () => {
+      const nextMode = root.classList.contains("dark") ? "dark" : "light";
+      setMode(nextMode);
+      const poemPreset = getStoredPreset("poem");
+      const bookPreset = getStoredPreset("book");
+      setActivePoem(poemPreset);
+      setActiveBook(bookPreset);
+      root.dataset.theme = currentCtx === "book" ? bookPreset : poemPreset;
+    };
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === "attributes" && m.attributeName === "class") update();
+      }
+    });
+    observer.observe(root, { attributes: true });
+    update();
+    return () => observer.disconnect();
+  }, [currentCtx]);
+
+  useEffect(() => {
+    const preset = currentCtx === "book" ? activeBook : activePoem;
+    document.documentElement.dataset.theme = preset;
+  }, [currentCtx, activeBook, activePoem]);
 
   const items = useMemo(() => PRESETS, []);
-  const [hovering, setHovering] = useState<PresetKey | null>(null);
+  const active = currentCtx === "book" ? activeBook : activePoem;
+
   const applyPreview = (key: PresetKey | null) => {
     if (!key) document.documentElement.dataset.theme = active;
     else document.documentElement.dataset.theme = key;
@@ -37,7 +75,7 @@ export default function Themes() {
       <section className="relative overflow-hidden rounded-3xl p-6 md:p-8 glass mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Themes</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Pick a color palette. Your choice is saved and applies across the app. Use the toggle to switch Light/Dark.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Only common themes are available. Selection is saved per Poem/Book; the toggle only switches Light/Dark for the selected theme.</p>
         </div>
         <ThemeToggle />
       </section>
@@ -46,10 +84,13 @@ export default function Themes() {
         {items.map((p) => (
           <Card
             key={p.key}
-            className={cn("overflow-hidden group bg-transparent", active === p.key && "ring-2 ring-ring")}
+            className={cn(
+              "overflow-hidden group bg-transparent",
+              active === p.key && "ring-2 ring-ring"
+            )}
             style={{ background: `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]}, ${p.swatch[2]})` }}
-            onMouseEnter={() => { setHovering(p.key as PresetKey); applyPreview(p.key as PresetKey); }}
-            onMouseLeave={() => { setHovering(null); applyPreview(null); }}
+            onMouseEnter={() => applyPreview(p.key as PresetKey)}
+            onMouseLeave={() => applyPreview(null)}
           >
             <CardContent className="p-0">
               <div className="p-4 flex items-start justify-between">
@@ -68,8 +109,9 @@ export default function Themes() {
                 <Button
                   variant={active === p.key ? "default" : "outline"}
                   onClick={() => {
-                    applyPreset(p.key as PresetKey);
-                    setActive(p.key as PresetKey);
+                    applyPresetFor(mode, currentCtx, p.key as PresetKey);
+                    if (currentCtx === "book") setActiveBook(p.key as PresetKey);
+                    else setActivePoem(p.key as PresetKey);
                   }}
                 >
                   Use Theme

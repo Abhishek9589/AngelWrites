@@ -9,7 +9,10 @@ import {
   TextRun,
   UnderlineType,
   PageBreak,
+  BorderStyle,
 } from "docx";
+
+const SPACING = { line: 408, lineRule: "auto" } as const;
 
 function escapeText(text: string): string {
   return String(text || "");
@@ -60,22 +63,22 @@ function paragraphFromElement(el: HTMLElement): Paragraph[] {
   const tag = el.tagName;
   const paragraphs: Paragraph[] = [];
 
-  const spacing = { line: 408, lineRule: "auto" };
+  const spacing = SPACING;
 
   if (tag === "P") {
     const children = runsFromInline(el);
     paragraphs.push(new Paragraph({ children, spacing }));
   } else if (tag === "H1" || tag === "H2" || tag === "H3" || tag === "H4" || tag === "H5" || tag === "H6") {
-    const level: Record<string, HeadingLevel> = {
+    const level = {
       H1: HeadingLevel.HEADING_1,
       H2: HeadingLevel.HEADING_2,
       H3: HeadingLevel.HEADING_3,
       H4: HeadingLevel.HEADING_4,
       H5: HeadingLevel.HEADING_5,
       H6: HeadingLevel.HEADING_6,
-    };
+    } as const;
     const children = runsFromInline(el);
-    paragraphs.push(new Paragraph({ heading: level[tag], children, spacing }));
+    paragraphs.push(new Paragraph({ heading: level[tag as keyof typeof level], children, spacing }));
   } else if (tag === "UL" || tag === "OL") {
     const isOrdered = tag === "OL";
     const items = Array.from(el.children).filter((c) => c.tagName === "LI") as HTMLElement[];
@@ -100,7 +103,7 @@ function paragraphFromElement(el: HTMLElement): Paragraph[] {
         children: inner,
         spacing,
         indent: { left: 720 },
-        border: { left: { color: "CCCCCC", space: 1, size: 6 } },
+        border: { left: { color: "CCCCCC", space: 1, size: 6, style: BorderStyle.SINGLE } },
       }),
     );
   } else if (tag === "PRE") {
@@ -149,9 +152,9 @@ function buildDocumentChildren(poems: Poem[]): Paragraph[] {
   const children: Paragraph[] = [];
   poems.forEach((p, idx) => {
     if (idx > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
-    const title = new Paragraph({ text: p.title, heading: HeadingLevel.HEADING_1, spacing: { line: 408, lineRule: "auto" } });
+    const title = new Paragraph({ text: p.title, heading: HeadingLevel.HEADING_1, spacing: SPACING });
     const metaText = `${new Date(p.date).toDateString()}${p.tags.length ? " • " + p.tags.join(", ") : ""}`;
-    const meta = new Paragraph({ children: [new TextRun({ text: metaText, italics: true })], spacing: { line: 408, lineRule: "auto" } });
+    const meta = new Paragraph({ children: [new TextRun({ text: metaText, italics: true })], spacing: SPACING });
     children.push(title);
     children.push(meta);
     children.push(new Paragraph({}));
