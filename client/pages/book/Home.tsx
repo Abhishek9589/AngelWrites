@@ -31,6 +31,15 @@ export default function BookHome() {
   useEffect(() => {
     saveBooks(books);
   }, [books]);
+  useEffect(() => {
+    const reload = () => setBooks(loadBooks());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
 
 
   const lastId = getLastOpenedBookId();
@@ -46,19 +55,15 @@ export default function BookHome() {
   const [openNew, setOpenNew] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
-  const coverFileRef = useRef<HTMLInputElement>(null);
   const genreRef = useRef<HTMLInputElement>(null);
   const tagsRef = useRef<HTMLInputElement>(null);
   const [newStatus, setNewStatus] = useState<"draft" | "completed">("draft");
   const importRef = useRef<HTMLInputElement>(null);
-  const [coverDataUrl, setCoverDataUrl] = useState<string | null>(null);
-  const [coverUrlInput, setCoverUrlInput] = useState<string>("");
 
-  const onCreate = () => {
+  const onCreate = async () => {
     const title = (titleRef.current?.value || "Untitled Book").toString();
     const description = (descRef.current?.value || "").toString();
-    const cover = (coverDataUrl || coverUrlInput || null);
+    const cover: string | null = null;
     const genre = (genreRef.current?.value || "").toString() || null;
     const tags = (tagsRef.current?.value || "").split(",").map((t) => t.trim()).filter(Boolean);
     const completed = newStatus === "completed";
@@ -139,7 +144,6 @@ export default function BookHome() {
             {recents.map((b) => (
               <Card key={b.id} className="group">
                 <CardContent className="p-4 flex items-start gap-3">
-                  <img src={b.cover || "/placeholder.svg"} alt="Cover" className="h-16 w-12 object-cover rounded-md border" />
                   <div className="min-w-0">
                     <div className="text-base font-semibold leading-tight line-clamp-1">{b.title}</div>
                     <div className="text-[11px] text-muted-foreground">Last edited {formatDistanceToNow(new Date(b.lastEdited), { addSuffix: true })}</div>
@@ -167,27 +171,6 @@ export default function BookHome() {
           <div className="grid gap-3">
             <Input ref={titleRef} placeholder="Title" />
             <Input ref={descRef} placeholder="Short description" />
-            <div className="grid gap-2">
-              <label className="text-xs text-muted-foreground">Cover</label>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" className="gap-2" onClick={() => coverFileRef.current?.click()}><Upload className="h-4 w-4" /> From device</Button>
-                <Input ref={coverRef} placeholder="Cover image URL" value={coverUrlInput} onChange={(e) => setCoverUrlInput(e.target.value)} />
-              </div>
-              {(coverDataUrl || coverUrlInput) && (
-                <div className="flex items-center gap-3">
-                  <img src={coverDataUrl || coverUrlInput} alt="Cover preview" className="h-20 w-16 object-cover rounded-md border" />
-                  <Button type="button" variant="ghost" onClick={() => { setCoverDataUrl(null); setCoverUrlInput(""); }}>Clear</Button>
-                </div>
-              )}
-              <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.currentTarget.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => setCoverDataUrl(reader.result as string);
-                reader.readAsDataURL(file);
-                if (coverFileRef.current) coverFileRef.current.value = "";
-              }} />
-            </div>
             <Input ref={genreRef} placeholder="Genre" />
             <Input ref={tagsRef} placeholder="Tags (comma-separated)" />
             <div>

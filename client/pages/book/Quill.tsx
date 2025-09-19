@@ -55,6 +55,15 @@ export default function BookQuill() {
   useEffect(() => {
     saveBooks(books);
   }, [books]);
+  useEffect(() => {
+    const reload = () => setBooks(loadBooks());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
 
   // Load last opened book if navigated directly
   useEffect(() => {
@@ -89,7 +98,6 @@ export default function BookQuill() {
   const [metaStatus, setMetaStatus] = useState<"draft" | "completed" | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
   const genreRef = useRef<HTMLInputElement>(null);
   const tagsRef = useRef<HTMLInputElement>(null);
 
@@ -231,7 +239,6 @@ export default function BookQuill() {
           <div className="grid gap-3">
             <Input ref={titleRef} defaultValue={current.title} placeholder="Title" />
             <Input ref={descRef} defaultValue={current.description || ""} placeholder="Short description" />
-            <Input ref={coverRef} defaultValue={current.cover || ""} placeholder="Cover image URL" />
             <Input ref={genreRef} defaultValue={current.genre || ""} placeholder="Genre" />
             <Input ref={tagsRef} defaultValue={(current.tags || []).join(", ")} placeholder="Tags (comma-separated)" />
             <div>
@@ -247,16 +254,15 @@ export default function BookQuill() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMetaOpen(false)}>Cancel</Button>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               const title = (titleRef.current?.value || current.title).toString();
               const description = (descRef.current?.value || current.description || "").toString();
-              const cover = (coverRef.current?.value || current.cover || "").toString() || null;
               const genre = (genreRef.current?.value || current.genre || "").toString() || null;
               const tags = (tagsRef.current?.value || (current.tags || []).join(",")).split(",").map((t) => t.trim()).filter(Boolean);
               const selected = metaStatus ?? (current.completed ? "completed" : "draft");
               const completed = selected === "completed";
               const status: BookStatus = completed ? "published" : "draft";
-              setBooks((prev) => updateBook(prev, current.id, { title, description, cover, genre, tags, status, completed }));
+              setBooks((prev) => updateBook(prev, current.id, { title, description, genre, tags, status, completed }));
               setMetaOpen(false);
             }}>Save</Button>
           </DialogFooter>

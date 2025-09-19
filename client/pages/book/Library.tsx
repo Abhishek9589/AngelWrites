@@ -47,7 +47,6 @@ export default function BookLibrary() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLInputElement>(null);
-  const coverRef = useRef<HTMLInputElement>(null);
   const genreRef = useRef<HTMLInputElement>(null);
   const tagsRef = useRef<HTMLInputElement>(null);
   const [metaStatusLib, setMetaStatusLib] = useState<"draft" | "completed" | null>(null);
@@ -70,6 +69,15 @@ export default function BookLibrary() {
   const [filterTags, setFilterTags] = useState<string>(() => localStorage.getItem("books:filter:tags") || "");
 
   useEffect(() => { saveBooks(books); }, [books]);
+  useEffect(() => {
+    const reload = () => setBooks(loadBooks());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
 
   useEffect(() => { localStorage.setItem("books:sort", sort); }, [sort]);
   useEffect(() => { localStorage.setItem("books:filter:status", filterStatus); }, [filterStatus]);
@@ -211,7 +219,6 @@ export default function BookLibrary() {
               <CardContent className="p-4">
                 <div className="flex items-start gap-3 justify-between">
                   <div className="flex items-start gap-3">
-                    <img src={b.cover || "/placeholder.svg"} alt="Cover" className="h-16 w-12 object-cover rounded-md border" />
                     <div>
                       <div className="text-base font-semibold leading-tight line-clamp-1">{b.title}</div>
                       <div className="text-[11px] text-muted-foreground">Last edited {formatDistanceToNow(new Date(b.lastEdited), { addSuffix: true })}</div>
@@ -259,7 +266,6 @@ export default function BookLibrary() {
           <div className="grid gap-3">
             <Input ref={titleRef} defaultValue={editing?.title || ""} placeholder="Title" />
             <Input ref={descRef} defaultValue={editing?.description || ""} placeholder="Short description" />
-            <Input ref={coverRef} defaultValue={editing?.cover || ""} placeholder="Cover image URL" />
             <Input ref={genreRef} defaultValue={editing?.genre || ""} placeholder="Genre" />
             <Input ref={tagsRef} defaultValue={(editing?.tags || []).join(", ")} placeholder="Tags (comma-separated)" />
             <div>
@@ -275,17 +281,16 @@ export default function BookLibrary() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               if (!editing) return;
               const title = (titleRef.current?.value || editing.title).toString();
               const description = (descRef.current?.value || editing.description).toString();
-              const cover = (coverRef.current?.value || editing.cover || "").toString() || null;
               const genre = (genreRef.current?.value || editing.genre || "").toString() || null;
               const tags = (tagsRef.current?.value || (editing.tags || []).join(",")).split(",").map((t) => t.trim()).filter(Boolean);
               const selected = metaStatusLib ?? (editing.completed ? "completed" : "draft");
               const completed = selected === "completed";
               const status: BookStatus = completed ? "published" : "draft";
-              setBooks((prev) => updateBook(prev, editing.id, { title, description, cover, genre, tags, status, completed }));
+              setBooks((prev) => updateBook(prev, editing.id, { title, description, genre, tags, status, completed }));
               setEditing(null);
             }}>Save</Button>
           </DialogFooter>

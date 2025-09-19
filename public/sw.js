@@ -1,4 +1,4 @@
-const CACHE_NAME = 'angelwrites-cache-v1';
+const CACHE_NAME = 'angelwrites-cache-v2';
 const APP_SHELL = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -21,8 +21,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET' || url.origin !== location.origin) return;
 
   const dest = req.destination;
-  // Cache-first for static assets
-  if (['style', 'script', 'image', 'font'].includes(dest)) {
+  // Cache-first for static assets (do NOT cache JS to avoid version mismatches during dev)
+  if (['style', 'image', 'font'].includes(dest)) {
     event.respondWith(
       caches.match(req).then((cached) => cached || fetch(req).then((res) => {
         const resClone = res.clone();
@@ -30,6 +30,12 @@ self.addEventListener('fetch', (event) => {
         return res;
       }))
     );
+    return;
+  }
+
+  // Always network for JS modules to avoid stale React copies
+  if (dest === 'script') {
+    event.respondWith(fetch(req).catch(() => caches.match(req)));
     return;
   }
 

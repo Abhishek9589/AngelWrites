@@ -22,6 +22,11 @@ export type Poem = {
   versions?: VersionSnapshot[];
 };
 
+type AuthUser = { id: string; username: string; email: string } | null;
+function getAuthUser(): AuthUser {
+  try { return JSON.parse(localStorage.getItem("aw.auth") || "null"); } catch { return null; }
+}
+
 export type PoemInput = {
   title: string;
   content: string;
@@ -30,54 +35,128 @@ export type PoemInput = {
   draft?: boolean;
 };
 
-const STORAGE_KEY = "angelhub.poems.v1";
-const STORAGE_FALLBACK_KEYS = [
+const LEGACY_KEYS = [
   "angelhub.poems.v1",
   "angelhub.poems",
   "angelhub.poems.v0",
   "poems",
 ] as const;
 
-export function loadPoems(): Poem[] {
+function storageKeyForUser(userId: string | null): string {
+  return userId ? `aw:poems:${userId}` : "aw:poems:anon";
+}
+
+function parsePoems(raw: string | null): Poem[] {
+  if (!raw) return [];
   try {
-    let raw: string | null = null;
-    let usedKey: string | null = null;
-    for (const k of STORAGE_FALLBACK_KEYS) {
-      raw = localStorage.getItem(k);
-      if (raw) { usedKey = k; break; }
-    }
-    if (!raw) return [];
-
-    let parsed: Poem[] = [];
-    try {
-      const obj = JSON.parse(raw);
-      if (Array.isArray(obj)) parsed = obj as Poem[];
-      else if (obj && Array.isArray((obj as any).poems)) parsed = (obj as any).poems as Poem[];
-      else parsed = [];
-    } catch {
-      parsed = [];
-    }
-
-    if (!Array.isArray(parsed)) parsed = [];
-
-    // Migrate to current key if read from a fallback
-    if (usedKey && usedKey !== STORAGE_KEY) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } catch {}
-    }
-
-    return parsed;
-  } catch (e) {
-    console.error("Failed to load poems", e);
+    const obj = JSON.parse(raw);
+    if (Array.isArray(obj)) return obj as Poem[];
+    if (obj && Array.isArray((obj as any).poems)) return (obj as any).poems as Poem[];
+    return [];
+  } catch {
     return [];
   }
 }
 
-export function savePoems(poems: Poem[]) {
+function readLocalPoemsForKey(key: string): Poem[] {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(poems));
-  } catch (e) {
-    console.error("Failed to save poems", e);
+    const raw = localStorage.getItem(key);
+    return parsePoems(raw);
+  } catch {
+    return [];
   }
+}
+
+function writeLocalPoemsForKey(key: string, poems: Poem[]) {
+  try { localStorage.setItem(key, JSON.stringify(poems)); } catch {}
+}
+
+function mergeByNewest(a: Poem[], b: Poem[]): Poem[] {
+  const map = new Map<string, Poem>();
+  for (const p of [...a, ...b]) {
+    const prev = map.get(p.id);
+    if (!prev) { map.set(p.id, p); continue; }
+    const newer = (p.updatedAt || 0) >= (prev.updatedAt || 0) ? p : prev;
+    map.set(p.id, newer);
+  }
+  return Array.from(map.values());
+}
+
+import { apiFetch, apiUrl } from "@/lib/api";
+
+export function loadPoems(): Poem[] {
+  const auth = getAuthUser();
+  if (!auth) {
+    // Read from anon storage and migrate any legacy keys into anon scope
+    const anonKey = storageKeyForUser(null);
+    let local = readLocalPoemsForKey(anonKey);
+    try {
+      let legacy: Poem[] = [];
+      for (const k of LEGACY_KEYS) legacy = mergeByNewest(legacy, readLocalPoemsForKey(k));
+      if (legacy.length) {
+        local = mergeByNewest(local, legacy);
+        writeLocalPoemsForKey(anonKey, local);
+        [...LEGACY_KEYS].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      }
+    } catch {}
+    return local;
+  }
+
+  const userKey = storageKeyForUser(auth.id);
+
+  // Start with data saved under the user key
+  let local = readLocalPoemsForKey(userKey);
+
+  // Migrate legacy keys and anon storage into the user-scoped key
+  try {
+    let legacy: Poem[] = [];
+    for (const k of LEGACY_KEYS) legacy = mergeByNewest(legacy, readLocalPoemsForKey(k));
+    legacy = mergeByNewest(legacy, readLocalPoemsForKey(storageKeyForUser(null)));
+    if (legacy.length) {
+      local = mergeByNewest(local, legacy);
+      writeLocalPoemsForKey(userKey, local);
+      // Cleanup legacy stores after migration
+      [...LEGACY_KEYS, storageKeyForUser(null)].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+    }
+  } catch {}
+
+  // Background sync from server and merge to local
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 2500);
+  apiFetch(`/api/poems`, { signal: ctrl.signal })
+    .then(async (r) => {
+      if (!r.ok) throw new Error("failed");
+      const raw = await r.text();
+      try {
+        const data = raw ? JSON.parse(raw) : {};
+        const remote = Array.isArray((data as any)?.poems) ? ((data as any).poems as Poem[]) : [];
+        let cur = readLocalPoemsForKey(userKey);
+        const merged = mergeByNewest(cur, remote);
+        writeLocalPoemsForKey(userKey, merged);
+      } catch {}
+    })
+    .catch(() => {})
+    .finally(() => clearTimeout(t));
+
+  return local;
+}
+
+export function savePoems(poems: Poem[]) {
+  const auth = getAuthUser();
+  const key = storageKeyForUser(auth ? auth.id : null);
+  writeLocalPoemsForKey(key, poems);
+
+  // Sync to server only if logged in
+  try {
+    if (!auth) return;
+    const payload = { poems } as any;
+    if (navigator.sendBeacon) {
+      const ok = navigator.sendBeacon(apiUrl("/api/poems/bulk"), new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      if (!ok) throw new Error("beacon_failed");
+    } else {
+      apiFetch(apiUrl("/api/poems/bulk"), { method: "POST", body: JSON.stringify(payload), headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
+    }
+  } catch {}
 }
 
 export function generateId() {

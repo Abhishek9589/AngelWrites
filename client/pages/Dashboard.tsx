@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { loadPoems, computeStats, Poem } from "@/lib/poems";
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Bar, CartesianGrid } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,7 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Star, Tag as TagIcon, FileText, ClipboardList } from "lucide-react";
 
 export default function Dashboard() {
-  const [poems] = useState(() => loadPoems());
+  const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
+
+  useEffect(() => {
+    const reload = () => setPoems(loadPoems());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
+
   const stats = useMemo(() => computeStats(poems), [poems]);
   const topTags = stats.tagCounts.slice(0, 10);
   const favorites = useMemo(() => poems.filter((p) => p.favorite).length, [poems]);

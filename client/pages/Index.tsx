@@ -68,6 +68,17 @@ export default function Index() {
     savePoems(poems);
   }, [poems]);
 
+  // Reload poems when auth changes (login/logout) to enforce visibility rules
+  useEffect(() => {
+    const reload = () => setPoems(loadPoems());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.query, query);
   }, [query]);

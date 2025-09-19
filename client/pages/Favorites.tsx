@@ -12,6 +12,15 @@ export default function Favorites() {
   const [query, setQuery] = useState("");
 
   useEffect(() => { savePoems(poems); }, [poems]);
+  useEffect(() => {
+    const reload = () => setPoems(loadPoems());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
 
   const favorites = useMemo(() => poems.filter((p) => p.favorite), [poems]);
   const filtered = useMemo(() => {

@@ -40,6 +40,15 @@ export default function PoemDetail() {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { savePoems(poems); }, [poems]);
+  useEffect(() => {
+    const reload = () => setPoems(loadPoems());
+    window.addEventListener("aw-auth-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("aw-auth-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
