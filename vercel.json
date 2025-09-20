@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm build:client",
-  "outputDirectory": "dist/spa",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import RichEditor from "@/components/RichEditor";
 import { sanitizeHtml } from "@/lib/html";
 import {
@@ -16,6 +17,7 @@ import {
   restoreVersion,
   deletePoem,
   normalizeTags,
+  setLastOpenedPoemId,
 } from "@/lib/poems";
 import { exportPoemsToDOCX } from "@/lib/exporters";
 import BackButton from "@/components/BackButton";
@@ -26,6 +28,7 @@ import EditorFooterStats from "@/components/EditorFooterStats";
 export default function PoemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [poems, setPoems] = useState<Poem[]>(() => loadPoems());
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
@@ -36,19 +39,11 @@ export default function PoemDetail() {
   const [editDateText, setEditDateText] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editTags, setEditTags] = useState("");
+  const [editType, setEditType] = useState<"poem" | "book">("poem");
   const [renaming, setRenaming] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { savePoems(poems); }, [poems]);
-  useEffect(() => {
-    const reload = () => setPoems(loadPoems());
-    window.addEventListener("aw-auth-changed", reload);
-    window.addEventListener("storage", reload);
-    return () => {
-      window.removeEventListener("aw-auth-changed", reload);
-      window.removeEventListener("storage", reload);
-    };
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -67,6 +62,16 @@ export default function PoemDetail() {
   const poem = useMemo(() => poems.find((p) => p.id === id) || null, [poems, id]);
   useEffect(() => { if (!poem) console.warn("Poem not found for id", id); }, [poem, id]);
 
+  // Track as last opened and optionally auto-open editor
+  useEffect(() => {
+    if (!poem) return;
+    setLastOpenedPoemId(poem.id);
+    const sp = new URLSearchParams(location.search);
+    const ed = sp.get("edit");
+    if ((ed === "1" || ed === "true") && !openEdit) setOpenEdit(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poem?.id]);
+
   useEffect(() => {
     if (poem && openEdit) {
       setEditTitle(poem.title);
@@ -74,6 +79,7 @@ export default function PoemDetail() {
       setEditDateText(format(d, "dd/MM/yyyy"));
       setEditContent(poem.content);
       setEditTags((poem.tags || []).join(", "));
+      setEditType(poem.type === "book" ? "book" : "poem");
       setRenaming(false);
     }
   }, [poem, openEdit]);
@@ -107,7 +113,7 @@ export default function PoemDetail() {
     );
   }
 
-  const toggleFavorite = () => setPoems((prev) => updatePoem(prev, poem.id, { favorite: !poem.favorite }));
+  const toggleFavorite = () => setPoems((prev) => prev.map((it) => (it.id === poem.id ? { ...it, favorite: !poem.favorite } : it)));
   const confirmDelete = () => {
     setPoems((prev) => prev.filter((p) => p.id !== poem.id));
     setOpenDelete(false);
@@ -123,8 +129,13 @@ export default function PoemDetail() {
       if (isValid(d)) iso = format(d, "yyyy-MM-dd");
     }
     const tags = normalizeTags(editTags.split(",").map((t) => t.trim()).filter(Boolean));
-    setPoems((prev) => updatePoem(prev, poem.id, { title: editTitle.trim(), content: editContent, date: iso, tags }));
+    const prevType = poem.type === "book" ? "book" : "poem";
+    const nextType = editType;
+    setPoems((prev) => updatePoem(prev, poem.id, { title: editTitle.trim(), content: editContent, date: iso, tags, type: nextType }));
     setOpenEdit(false);
+    if (prevType !== nextType) {
+      if (nextType === "book") navigate(`/book/${poem.id}`, { replace: true });
+    }
   };
 
   return (
@@ -248,7 +259,7 @@ export default function PoemDetail() {
         <h1 className="text-3xl font-extrabold tracking-tight">{poem.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{formatDate(poem.date)}</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          {poem.tags.map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}
+          {poem.tags.filter((t) => !t.toLowerCase().startsWith("genre:")).map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}
         </div>
         {poem.draft && (
           <div className="mt-2 inline-block rounded-md bg-yellow-100 text-yellow-900 text-[10px] px-2 py-0.5 dark:bg-yellow-900 dark:text-yellow-100">Draft</div>
@@ -285,6 +296,15 @@ export default function PoemDetail() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center md:gap-2">
+                  <Select value={editType} onValueChange={(v) => setEditType(v as "poem" | "book")}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="poem">Poem</SelectItem>
+                      <SelectItem value="book">Book</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <div className="relative">
                     <Input
                       type="date"

@@ -12,15 +12,6 @@ export default function Favorites() {
   const [query, setQuery] = useState("");
 
   useEffect(() => { savePoems(poems); }, [poems]);
-  useEffect(() => {
-    const reload = () => setPoems(loadPoems());
-    window.addEventListener("aw-auth-changed", reload);
-    window.addEventListener("storage", reload);
-    return () => {
-      window.removeEventListener("aw-auth-changed", reload);
-      window.removeEventListener("storage", reload);
-    };
-  }, []);
 
   const favorites = useMemo(() => poems.filter((p) => p.favorite), [poems]);
   const filtered = useMemo(() => {
@@ -33,7 +24,7 @@ export default function Favorites() {
     );
   }, [favorites, query]);
 
-  const toggleFavorite = (id: string) => setPoems((prev) => updatePoem(prev, id, { favorite: false }));
+  const toggleFavorite = (id: string) => setPoems((prev) => prev.map((it) => (it.id === id ? { ...it, favorite: false } : it)));
 
   return (
     <div className="container py-10">
@@ -46,7 +37,10 @@ export default function Favorites() {
 
       <section className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((p) => (
-          <Card key={p.id} className="group relative overflow-hidden">
+          <Card
+            key={p.id}
+            className={`group relative overflow-hidden ${p.type === "book" ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-400/30 dark:border-amber-300/15" : "bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-400/30 dark:border-indigo-300/15"}`}
+          >
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -63,12 +57,12 @@ export default function Favorites() {
               </div>
               <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{preview(p.content, 220)}</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {p.tags.map((t) => (
+                {p.tags.filter((t) => !t.toLowerCase().startsWith("genre:")).map((t) => (
                   <Badge key={t} variant="secondary">{t}</Badge>
                 ))}
               </div>
               <div className="mt-4">
-                <Link to={`/poem/${p.id}`}><Button variant="outline" size="sm">Read</Button></Link>
+                <Link to={`${p.tags.some((t) => t.toLowerCase().startsWith("genre:")) ? "/book" : "/poem"}/${p.id}`}><Button variant="outline" size="sm">Read</Button></Link>
               </div>
             </CardContent>
           </Card>

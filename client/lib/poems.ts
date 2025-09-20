@@ -20,12 +20,8 @@ export type Poem = {
   createdAt: number;
   updatedAt: number;
   versions?: VersionSnapshot[];
+  type?: "poem" | "book"; // optional for backward compatibility
 };
-
-type AuthUser = { id: string; username: string; email: string } | null;
-function getAuthUser(): AuthUser {
-  try { return JSON.parse(localStorage.getItem("aw.auth") || "null"); } catch { return null; }
-}
 
 export type PoemInput = {
   title: string;
@@ -33,130 +29,83 @@ export type PoemInput = {
   date: string; // ISO date string
   tags: string[];
   draft?: boolean;
+  type?: "poem" | "book";
 };
 
-const LEGACY_KEYS = [
+const STORAGE_KEY = "angelhub.poems.v1";
+const STORAGE_FALLBACK_KEYS = [
   "angelhub.poems.v1",
   "angelhub.poems",
   "angelhub.poems.v0",
   "poems",
 ] as const;
 
-function storageKeyForUser(userId: string | null): string {
-  return userId ? `aw:poems:${userId}` : "aw:poems:anon";
-}
-
-function parsePoems(raw: string | null): Poem[] {
-  if (!raw) return [];
-  try {
-    const obj = JSON.parse(raw);
-    if (Array.isArray(obj)) return obj as Poem[];
-    if (obj && Array.isArray((obj as any).poems)) return (obj as any).poems as Poem[];
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function readLocalPoemsForKey(key: string): Poem[] {
-  try {
-    const raw = localStorage.getItem(key);
-    return parsePoems(raw);
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalPoemsForKey(key: string, poems: Poem[]) {
-  try { localStorage.setItem(key, JSON.stringify(poems)); } catch {}
-}
-
-function mergeByNewest(a: Poem[], b: Poem[]): Poem[] {
-  const map = new Map<string, Poem>();
-  for (const p of [...a, ...b]) {
-    const prev = map.get(p.id);
-    if (!prev) { map.set(p.id, p); continue; }
-    const newer = (p.updatedAt || 0) >= (prev.updatedAt || 0) ? p : prev;
-    map.set(p.id, newer);
-  }
-  return Array.from(map.values());
-}
-
-import { apiFetch, apiUrl } from "@/lib/api";
+const STORAGE_LAST_OPEN_POEM = "poems:lastOpened";
 
 export function loadPoems(): Poem[] {
-  const auth = getAuthUser();
-  if (!auth) {
-    // Read from anon storage and migrate any legacy keys into anon scope
-    const anonKey = storageKeyForUser(null);
-    let local = readLocalPoemsForKey(anonKey);
-    try {
-      let legacy: Poem[] = [];
-      for (const k of LEGACY_KEYS) legacy = mergeByNewest(legacy, readLocalPoemsForKey(k));
-      if (legacy.length) {
-        local = mergeByNewest(local, legacy);
-        writeLocalPoemsForKey(anonKey, local);
-        [...LEGACY_KEYS].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
-      }
-    } catch {}
-    return local;
-  }
-
-  const userKey = storageKeyForUser(auth.id);
-
-  // Start with data saved under the user key
-  let local = readLocalPoemsForKey(userKey);
-
-  // Migrate legacy keys and anon storage into the user-scoped key
   try {
-    let legacy: Poem[] = [];
-    for (const k of LEGACY_KEYS) legacy = mergeByNewest(legacy, readLocalPoemsForKey(k));
-    legacy = mergeByNewest(legacy, readLocalPoemsForKey(storageKeyForUser(null)));
-    if (legacy.length) {
-      local = mergeByNewest(local, legacy);
-      writeLocalPoemsForKey(userKey, local);
-      // Cleanup legacy stores after migration
-      [...LEGACY_KEYS, storageKeyForUser(null)].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+    let raw: string | null = null;
+    let usedKey: string | null = null;
+    for (const k of STORAGE_FALLBACK_KEYS) {
+      raw = localStorage.getItem(k);
+      if (raw) { usedKey = k; break; }
     }
-  } catch {}
+    if (!raw) return [];
 
-  // Background sync from server and merge to local
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 2500);
-  apiFetch(`/api/poems`, { signal: ctrl.signal })
-    .then(async (r) => {
-      if (!r.ok) throw new Error("failed");
-      const raw = await r.text();
+    let parsed: Poem[] = [];
+    try {
+      const obj = JSON.parse(raw);
+      if (Array.isArray(obj)) parsed = obj as Poem[];
+      else if (obj && Array.isArray((obj as any).poems)) parsed = (obj as any).poems as Poem[];
+      else parsed = [];
+    } catch {
+      parsed = [];
+    }
+
+    if (!Array.isArray(parsed)) parsed = [];
+
+    // Normalize entries and backfill fields for legacy items
+    const migrated = parsed.map((p) => {
+      const anyp: any = p || {};
+      const tags = Array.isArray(anyp.tags) ? anyp.tags.filter((t: any) => typeof t === "string").map((t: string) => t.trim()).filter(Boolean) : [];
+      const hasGenre = tags.some((t: string) => t.toLowerCase().startsWith("genre:"));
+      const type: "book" | "poem" = anyp.type === "book" || anyp.type === "poem" ? anyp.type : hasGenre ? "book" : "poem";
+      const title = typeof anyp.title === "string" ? anyp.title : "Untitled";
+      const content = typeof anyp.content === "string" ? anyp.content : "";
+      const dateRaw = typeof anyp.date === "string" ? anyp.date : "";
+      let date = dateRaw;
       try {
-        const data = raw ? JSON.parse(raw) : {};
-        const remote = Array.isArray((data as any)?.poems) ? ((data as any).poems as Poem[]) : [];
-        let cur = readLocalPoemsForKey(userKey);
-        const merged = mergeByNewest(cur, remote);
-        writeLocalPoemsForKey(userKey, merged);
-      } catch {}
-    })
-    .catch(() => {})
-    .finally(() => clearTimeout(t));
+        const d = new Date(dateRaw || Date.now());
+        if (!isNaN(d.getTime())) date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      } catch {
+        date = new Date().toISOString().slice(0, 10);
+      }
+      const favorite = !!anyp.favorite;
+      const draft = !!anyp.draft;
+      const createdAt = typeof anyp.createdAt === "number" ? anyp.createdAt : Date.now();
+      const updatedAt = typeof anyp.updatedAt === "number" ? anyp.updatedAt : createdAt;
+      const versions = Array.isArray(anyp.versions) ? anyp.versions : undefined;
+      return { id: String(anyp.id || generateId()), title, content, date, tags, favorite, draft, createdAt, updatedAt, versions, type } as Poem;
+    });
 
-  return local;
+    // Migrate to current key if read from a fallback
+    if (usedKey && usedKey !== STORAGE_KEY) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch {}
+    }
+
+    return migrated;
+  } catch (e) {
+    console.error("Failed to load poems", e);
+    return [];
+  }
 }
 
 export function savePoems(poems: Poem[]) {
-  const auth = getAuthUser();
-  const key = storageKeyForUser(auth ? auth.id : null);
-  writeLocalPoemsForKey(key, poems);
-
-  // Sync to server only if logged in
   try {
-    if (!auth) return;
-    const payload = { poems } as any;
-    if (navigator.sendBeacon) {
-      const ok = navigator.sendBeacon(apiUrl("/api/poems/bulk"), new Blob([JSON.stringify(payload)], { type: "application/json" }));
-      if (!ok) throw new Error("beacon_failed");
-    } else {
-      apiFetch(apiUrl("/api/poems/bulk"), { method: "POST", body: JSON.stringify(payload), headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
-    }
-  } catch {}
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(poems));
+  } catch (e) {
+    console.error("Failed to save poems", e);
+  }
 }
 
 export function generateId() {
@@ -175,6 +124,7 @@ export function createPoem(input: PoemInput): Poem {
     draft: !!input.draft,
     createdAt: now,
     updatedAt: now,
+    type: input.type ?? "poem",
   };
 }
 
@@ -184,6 +134,17 @@ export function upsertPoem(poems: Poem[], poem: Poem): Poem[] {
   if (idx === -1) next.unshift(poem);
   else next[idx] = { ...poem, updatedAt: Date.now() };
   return next;
+}
+
+export function setLastOpenedPoemId(id: string | null) {
+  try {
+    if (!id) localStorage.removeItem(STORAGE_LAST_OPEN_POEM);
+    else localStorage.setItem(STORAGE_LAST_OPEN_POEM, id);
+  } catch {}
+}
+
+export function getLastOpenedPoemId(): string | null {
+  try { return localStorage.getItem(STORAGE_LAST_OPEN_POEM); } catch { return null; }
 }
 
 export function updatePoem(poems: Poem[], id: string, patch: Partial<Poem>): Poem[] {

@@ -17,15 +17,6 @@ export default function Backup() {
     // refresh from storage when visiting
     setPoems(loadPoems());
   }, []);
-  useEffect(() => {
-    const reload = () => setPoems(loadPoems());
-    window.addEventListener("aw-auth-changed", reload);
-    window.addEventListener("storage", reload);
-    return () => {
-      window.removeEventListener("aw-auth-changed", reload);
-      window.removeEventListener("storage", reload);
-    };
-  }, []);
 
   const filtered = useMemo(() => sortPoems(searchPoems(poems, query), sort), [poems, query, sort]);
   const allChecked = selected.size > 0 && filtered.every((p) => selected.has(p.id));

@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: backend
-    env: node
-    plan: free
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm build:server
-    startCommand: pnpm start
