@@ -46,6 +46,7 @@ import {
   updatePoem,
   updatePoemWithVersion,
   setLastOpenedPoemId,
+  generateId,
 } from "@/lib/poems";
 import { format } from "date-fns";
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow, Filter, MoreHorizontal, Plus, Search, Star, StarOff, Upload } from "lucide-react";
@@ -512,6 +513,8 @@ export default function Index() {
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{preview(p.content, 220)}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {/* Show genre if present */}
+                  {(() => { const g = (p.tags || []).find((t) => t.toLowerCase().startsWith("genre:")); return g ? <Badge key="__genre" variant="secondary">{g.slice(6).trim()}</Badge> : null; })()}
                   {p.tags.filter((t) => !t.toLowerCase().startsWith("genre:")).map((t) => (
                     <Badge key={t} variant="secondary">{t}</Badge>
                   ))}

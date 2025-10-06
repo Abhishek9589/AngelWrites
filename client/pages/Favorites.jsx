@@ -57,6 +57,7 @@ export default function Favorites() {
               </div>
               <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{preview(p.content, 220)}</p>
               <div className="mt-4 flex flex-wrap gap-2">
+                {(() => { const g = (p.tags || []).find((t) => t.toLowerCase().startsWith("genre:")); return g ? <Badge key="__genre" variant="secondary">{g.slice(6).trim()}</Badge> : null; })()}
                 {p.tags.filter((t) => !t.toLowerCase().startsWith("genre:")).map((t) => (
                   <Badge key={t} variant="secondary">{t}</Badge>
                 ))}

@@ -473,17 +473,14 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-/* Themed scrollbars (kept for backward compatibility) */
-:root { --scrollbar-size: 0px; }
-* { scrollbar-width: none; -ms-overflow-style: none; }
-*::-webkit-scrollbar { width: 0px; height: 0px; display: none; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: transparent; border: none; }
-*::-webkit-scrollbar-corner { background: transparent; }
-
-/* Hide scrollbar for elements with .no-scrollbar (still scrollable) */
+/* Themed scrollbars */
+:root { --scrollbar-size: 8px; }
+/* Default scrollbars visible for accessibility. Opt-in hiding with .no-scrollbar only. */
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+/* Hide scrollbars globally while preserving scrolling */
+html, body, * { -ms-overflow-style: none; scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 @layer components {
   /* Ensure comfortable tap targets inside Book Mode only */

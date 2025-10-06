@@ -19,8 +19,8 @@ import {
 import { exportPoemsToDOCX } from "@/lib/exporters";
 import BackButton from "@/components/BackButton";
 import { Edit, Star, StarOff, Trash, FileDown, BookText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { format, parse, isValid } from "date-fns";
-import EditorFooterStats from "@/components/EditorFooterStats";
 
 /**
  * @typedef {{ id: string, title:string, content:string, date:string, tags:string[], favorite?:boolean, type?:string }} Poem
@@ -47,6 +47,12 @@ export default function BookDetail() {
   const [selectedViewChapterId, setSelectedViewChapterId] = useState(null);
   const [editType, setEditType] = useState("book");
   const [editGenre, setEditGenre] = useState("");
+  // Pending quick actions when opening editor from sidebar
+  const pendingOpenChapterIdRef = useRef(null);
+  const pendingDeleteChapterIdRef = useRef(null);
+  // Chapter delete dialog state
+  const [openDeleteChapter, setOpenDeleteChapter] = useState(false);
+  const [pendingDeleteChapterId, setPendingDeleteChapterId] = useState(null);
 
   useEffect(() => { savePoems(poems); }, [poems]);
 
@@ -79,6 +85,19 @@ export default function BookDetail() {
       setEditContent(built.html);
       const genreTag = (book.tags || []).find((t) => t.toLowerCase().startsWith("genre:"));
       setEditGenre(genreTag ? genreTag.slice(6).trim() : "");
+      // Apply any pending quick actions from sidebar
+      if (pendingOpenChapterIdRef.current) {
+        const cid = pendingOpenChapterIdRef.current;
+        pendingOpenChapterIdRef.current = null;
+        handleSelectChapter(cid);
+      }
+      if (pendingDeleteChapterIdRef.current) {
+        const delId = pendingDeleteChapterIdRef.current;
+        pendingDeleteChapterIdRef.current = null;
+        setSelectedViewChapterId(delId);
+        setSelectedChapterId(delId);
+        setTimeout(() => handleDeleteChapter(), 0);
+      }
     }
   }, [book, openEdit]);
 
@@ -132,7 +151,9 @@ export default function BookDetail() {
 
   const toggleFavorite = () => setPoems((prev) => prev.map((it) => (it.id === book.id ? { ...it, favorite: !book.favorite } : it)));
   const confirmDelete = () => {
-    setPoems((prev) => prev.filter((p) => p.id !== book.id));
+    const next = poems.filter((p) => p.id !== book.id);
+    setPoems(next);
+    savePoems(next);
     setOpenDelete(false);
     navigate("/");
   };
@@ -153,6 +174,9 @@ export default function BookDetail() {
     const nonGenre = (book.tags || []).filter((t) => !t.toLowerCase().startsWith("genre:"));
     const nextTags = nextType === "book" && editGenre.trim() ? normalizeTags([...nonGenre, `genre:${editGenre}`]) : nonGenre;
     setPoems((prev) => updatePoem(prev, book.id, { title: editTitle.trim(), content: merged, date: iso, type: nextType, tags: nextTags }));
+    if (nextType === "book") {
+      setSelectedViewChapterId(selectedChapterId || viewChapters.toc[0]?.id || null);
+    }
     setOpenEdit(false);
     if (prevType !== nextType) {
       if (nextType === "poem") navigate(`/poem/${book.id}`, { replace: true });
@@ -169,7 +193,8 @@ export default function BookDetail() {
     const template = document.createElement("template");
     template.innerHTML = clean;
     const used = new Set();
-    const toc = [];
+    let seq = 0;
+    let toc = [];
     const headings = Array.from(template.content.querySelectorAll("h1,h2,h3"));
     const slug = (t) => t.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80) || "chapter";
     headings.forEach((el, i) => {
@@ -181,9 +206,16 @@ export default function BookDetail() {
       used.add(id);
       el.id = id;
       const level = Number(el.tagName.substring(1)) || 1;
-      toc.push({ id, text: txt || `Chapter ${i + 1}`, level });
+      const createdAttr = Number(el.getAttribute("data-created"));
+      const created = Number.isFinite(createdAttr) && createdAttr > 0 ? createdAttr : (seq++);
+      if (!el.hasAttribute("data-created")) el.setAttribute("data-created", String(created));
+      toc.push({ id, text: txt || `Chapter ${i + 1}`, level, created, index: i });
     });
-    return { toc, html: template.innerHTML };
+    // Sort by first created (oldest first); fallback to original order
+    toc = toc.sort((a, b) => (a.created - b.created) || (a.index - b.index));
+    // Drop helper fields
+    const simple = toc.map(({ id, text, level }) => ({ id, text, level }));
+    return { toc: simple, html: template.innerHTML };
   };
   const viewChapters = useMemo(() => buildChapters(book.content), [book.content]);
   const selectedViewHtml = useMemo(() => {
@@ -192,6 +224,19 @@ export default function BookDetail() {
     return `<h${level} id="${selectedViewChapterId}">${escapeHtml(title)}</h${level}>${content}`;
   }, [selectedViewChapterId, viewChapters.html]);
   const baseChapters = useMemo(() => buildChapters(editBaseHtml || book.content), [editBaseHtml, book.content]);
+
+  // Ensure preview defaults to first chapter when available and stays valid
+  useEffect(() => {
+    const toc = viewChapters.toc;
+    if (!toc || toc.length === 0) {
+      if (selectedViewChapterId) setSelectedViewChapterId(null);
+      return;
+    }
+    const ids = new Set(toc.map((c) => c.id));
+    if (!selectedViewChapterId || !ids.has(selectedViewChapterId)) {
+      setSelectedViewChapterId(toc[0].id);
+    }
+  }, [viewChapters.html]);
 
   function extractChapterSection(html, chapterId) {
     const template = document.createElement("template");
@@ -252,6 +297,77 @@ export default function BookDetail() {
     return (template.innerHTML || "").trim();
   }
 
+  function deleteChapterSection(html, chapterId) {
+    const template = document.createElement("template");
+    template.innerHTML = html || "";
+    const heading = template.content.querySelector(`#${CSS.escape(chapterId)}`);
+    if (!heading) return html || "";
+    const level = Number(heading.tagName.substring(1)) || 1;
+    // Collect nodes to remove: the heading itself and all following siblings
+    // until the next heading of same or higher level.
+    const toRemove = [heading];
+    let node = heading.nextSibling;
+    while (node) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node;
+        const tag = el.tagName.toUpperCase();
+        if (tag === "H1" || tag === "H2" || tag === "H3") {
+          const nextLevel = Number(tag.substring(1)) || 1;
+          if (nextLevel <= level) break;
+        }
+      }
+      toRemove.push(node);
+      node = node.nextSibling;
+    }
+    toRemove.forEach((n) => n.parentNode && n.parentNode.removeChild(n));
+    return (template.innerHTML || "").trim();
+  }
+
+  function performDeleteChapter(targetId) {
+    const id = targetId || selectedChapterId || selectedViewChapterId;
+    if (!id) return;
+    if (openEdit) {
+      const merged = deleteChapterSection(editBaseHtml || book.content, id);
+      setEditBaseHtml(merged);
+      if (selectedChapterId === id) {
+        setSelectedChapterId(null);
+        setSelectedChapterTitle("");
+      }
+      setShowNewChapter(false);
+      setEditContent(merged);
+    } else {
+      const built = buildChapters(book.content);
+      const merged = deleteChapterSection(built.html, id);
+      // Persist to poems and save immediately, mirroring book/poem delete flow
+      setPoems((prev) => {
+        const next = updatePoem(prev, book.id, { content: merged });
+        savePoems(next);
+        return next;
+      });
+      // Keep local edit HTML in sync so future edits reflect deletion immediately
+      setEditBaseHtml(merged);
+      // Update current preview selection
+      const nextView = buildChapters(merged);
+      const has = nextView.toc.some((c) => c.id === selectedViewChapterId);
+      if (!has) setSelectedViewChapterId(nextView.toc[0]?.id || null);
+    }
+  }
+
+  function handleDeleteChapter(targetId) {
+    const id = targetId || selectedViewChapterId || selectedChapterId;
+    if (!id) return;
+    setPendingDeleteChapterId(id);
+    setOpenDeleteChapter(true);
+  }
+
+  function commitRenameChapterTitle() {
+    if (!selectedChapterId) return;
+    const t = selectedChapterTitle.trim();
+    if (!t) return;
+    const merged = replaceChapterSection(editBaseHtml || book.content, selectedChapterId, t, editContent);
+    setEditBaseHtml(merged);
+  }
+
   function handleSelectChapter(id) {
     const { title, content } = extractChapterSection(baseChapters.html, id);
     setSelectedChapterId(id);
@@ -281,7 +397,7 @@ export default function BookDetail() {
     const used = new Set(baseChapters.toc.map((c) => c.id));
     let k = 1;
     while (used.has(id)) { id = `ch-new-${base}-${k++}`; }
-    const heading = `<h2 id="${id}">${escapeHtml(title)}</h2>`;
+    const heading = `<h2 id="${id}" data-created="${Date.now()}">${escapeHtml(title)}</h2>`;
     const merged = (editBaseHtml || book.content || "") + heading;
     setEditBaseHtml(merged);
     setSelectedChapterId(id);
@@ -399,6 +515,27 @@ export default function BookDetail() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog open={openDeleteChapter} onOpenChange={setOpenDeleteChapter}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete chapter</DialogTitle>
+              <DialogDescription>Are you sure you want to delete this chapter? This action cannot be undone.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenDeleteChapter(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  performDeleteChapter(pendingDeleteChapterId);
+                  setOpenDeleteChapter(false);
+                  setPendingDeleteChapterId(null);
+                }}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="mt-6">
@@ -406,17 +543,45 @@ export default function BookDetail() {
         <div className="mt-2 flex items-center gap-2 text-xs">
           <div className="rounded-md bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100 px-2 py-0.5">Book</div>
           <span className="text-muted-foreground">{formatDate(book.date)}</span>
+          {(() => { const g = (book.tags || []).find((t) => t.toLowerCase().startsWith("genre:")); return g ? <Badge variant="secondary">{g.slice(6).trim()}</Badge> : null; })()}
         </div>
         <div className="mt-6 flex flex-col md:flex-row gap-6">
           <aside className="w-full md:w-[30%]">
             <div className="rounded-2xl glass p-4">
-              <h3 className="font-semibold">Chapters</h3>
+              <h3 className="font-semibold cursor-pointer hover:underline" onClick={() => setSelectedViewChapterId(null)} title="Show whole document">Chapters</h3>
               <ul className="mt-2 space-y-1">
                 {viewChapters.toc.length > 0 ? viewChapters.toc.map((c, idx) => (
-                  <li key={c.id}>
-                    <button type="button" onClick={() => setSelectedViewChapterId(c.id)} className={`block w-full text-left text-sm hover:underline ${selectedViewChapterId === c.id ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {c.text || `Chapter ${idx + 1}`}
+                  <li key={c.id} className="group flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedViewChapterId(c.id)}
+                      className={`flex-1 min-w-0 text-left text-sm hover:underline ${selectedViewChapterId === c.id ? 'text-primary' : 'text-muted-foreground'}`}
+                    >
+                      <span className="truncate">{c.text || `Chapter ${idx + 1}`}</span>
                     </button>
+                    <div className="shrink-0 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Rename chapter"
+                        onClick={() => {
+                          pendingOpenChapterIdRef.current = c.id;
+                          setOpenEdit(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        aria-label="Delete chapter"
+                        onClick={() => handleDeleteChapter(c.id)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </li>
                 )) : (
                   <li className="text-sm text-muted-foreground">No chapters</li>
@@ -459,47 +624,98 @@ export default function BookDetail() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center md:gap-2">
-                  <Select value={editType} onValueChange={(v) => {
-                    const next = v;
-                    setEditType(next);
-                    if (next === "poem") {
-                      setSelectedChapterId(null);
-                      setSelectedChapterTitle("");
-                      setShowNewChapter(false);
-                      setEditContent(editBaseHtml || book.content);
-                    }
-                  }}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="book">Book</SelectItem>
-                      <SelectItem value="poem">Poem</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* Type selector removed per request */}
 
                   {editType === "book" && (
                     <div className="flex items-center gap-2">
                       <Select
-                        value={selectedChapterId ?? "__all__"}
+                        value={showNewChapter ? "__new__" : (selectedChapterId ?? "__all__")}
                         onValueChange={(v) => {
                           if (v === "__all__") {
                             setSelectedChapterId(null);
                             setSelectedChapterTitle("");
                             setShowNewChapter(false);
+                            setNewChapterTitle("");
                             setEditContent(editBaseHtml || book.content);
                           } else if (v === "__new__") {
                             setShowNewChapter(true);
                             setSelectedChapterId(null);
                             setSelectedChapterTitle("");
+                            setNewChapterTitle("");
                           } else {
                             handleSelectChapter(v);
                             setShowNewChapter(false);
+                            setNewChapterTitle("");
                           }
                         }}
                       >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Select chapter" />
+                        <SelectTrigger className="w-[280px]">
+                          {showNewChapter ? (
+                            <input
+                              value={newChapterTitle}
+                              onChange={(e) => setNewChapterTitle(e.target.value)}
+                              placeholder="New chapter title"
+                              className="flex-1 min-w-0 bg-transparent outline-none text-sm pr-6"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  const t = newChapterTitle.trim();
+                                  if (t) { handleCreateChapter(); setShowNewChapter(false); }
+                                  else { setShowNewChapter(false); setNewChapterTitle(""); }
+                                } else if (e.key === " " || e.code === "Space" || e.key === "Spacebar") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setNewChapterTitle((prev) => prev + " ");
+                                } else {
+                                  e.stopPropagation();
+                                }
+                              }}
+                              onKeyUp={(e) => {
+                                if (e.key === " " || e.code === "Space" || e.key === "Spacebar") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                              onBlur={() => {
+                                const t = newChapterTitle.trim();
+                                if (t) { handleCreateChapter(); setShowNewChapter(false); }
+                                else { setShowNewChapter(false); setNewChapterTitle(""); }
+                              }}
+                            />
+                          ) : selectedChapterId ? (
+                            <input
+                              value={selectedChapterTitle}
+                              onChange={(e) => setSelectedChapterTitle(e.target.value)}
+                              placeholder="Chapter title"
+                              className="flex-1 min-w-0 bg-transparent outline-none text-sm pr-6"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  commitRenameChapterTitle();
+                                  e.currentTarget.blur();
+                                } else if (e.key === " " || e.code === "Space" || e.key === "Spacebar") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedChapterTitle((prev) => prev + " ");
+                                } else {
+                                  e.stopPropagation();
+                                }
+                              }}
+                              onKeyUp={(e) => {
+                                if (e.key === " " || e.code === "Space" || e.key === "Spacebar") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }
+                              }}
+                              onBlur={() => commitRenameChapterTitle()}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">Whole document</span>
+                          )}
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__all__">Whole document</SelectItem>
@@ -510,31 +726,8 @@ export default function BookDetail() {
                         </SelectContent>
                       </Select>
 
-                      {selectedChapterId && (
-                        <Input
-                          value={selectedChapterTitle}
-                          onChange={(e) => setSelectedChapterTitle(e.target.value)}
-                          className="w-[200px]"
-                        />
-                      )}
+                      {null}
 
-                      {showNewChapter && (
-                        <>
-                          <Input
-                            placeholder="New chapter title"
-                            value={newChapterTitle}
-                            onChange={(e) => setNewChapterTitle(e.target.value)}
-                            className="w-[200px]"
-                          />
-                          <Button
-                            onClick={() => { handleCreateChapter(); setShowNewChapter(false); }}
-                            disabled={!newChapterTitle.trim()}
-                          >
-                            Create
-                          </Button>
-                          <Button variant="ghost" onClick={() => setShowNewChapter(false)}>Cancel</Button>
-                        </>
-                      )}
                     </div>
                   )}
 
@@ -572,7 +765,6 @@ export default function BookDetail() {
             </div>
 
 
-            <EditorFooterStats content={editContent} />
           </div>
         </div>
       )}

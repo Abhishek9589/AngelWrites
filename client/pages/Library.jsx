@@ -237,6 +237,7 @@ export default function Library() {
               </div>
               <p className="mt-3 text-sm text-muted-foreground line-clamp-3">{previewPoem(p.content, 160)}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
+                {(() => { const g = (p.tags || []).find((t) => t.toLowerCase().startsWith("genre:")); return g ? <Badge key="__genre" variant="secondary" className="text-xs">{g.slice(6).trim()}</Badge> : null; })()}
                 {p.tags.filter((t) => !t.toLowerCase().startsWith("genre:")).map((t) => (
                   <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
                 ))}

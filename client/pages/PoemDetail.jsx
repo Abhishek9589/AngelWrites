@@ -22,7 +22,6 @@ import { exportPoemsToDOCX } from "@/lib/exporters";
 import BackButton from "@/components/BackButton";
 import { Edit, Star, StarOff, Trash, FileDown, Pencil } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
-import EditorFooterStats from "@/components/EditorFooterStats";
 
 export default function PoemDetail() {
   const { id } = useParams();
@@ -125,7 +124,9 @@ export default function PoemDetail() {
 
   const toggleFavorite = () => setPoems((prev) => prev.map((it) => (it.id === poem.id ? { ...it, favorite: !poem.favorite } : it)));
   const confirmDelete = () => {
-    setPoems((prev) => prev.filter((p) => p.id !== poem.id));
+    const next = poems.filter((p) => p.id !== poem.id);
+    setPoems(next);
+    savePoems(next);
     setOpenDelete(false);
     navigate("/");
   };
@@ -306,15 +307,6 @@ export default function PoemDetail() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:items-center md:gap-2">
-                  <Select value={editType} onValueChange={(v) => setEditType(v)}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="poem">Poem</SelectItem>
-                      <SelectItem value="book">Book</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <div className="relative">
                     <Input
                       type="date"
@@ -348,7 +340,6 @@ export default function PoemDetail() {
               />
             </div>
 
-            <EditorFooterStats content={editContent} />
           </div>
         </div>
       )}

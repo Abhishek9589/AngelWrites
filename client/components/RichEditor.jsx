@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -7,9 +7,12 @@ import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import FontFamily from "@tiptap/extension-font-family";
+import FontSize from "@/lib/extensions/font-size";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,10 +30,8 @@ import {
   List,
   ListOrdered,
   Quote,
-  Heading1,
-  Heading2,
-  Heading3,
 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,6 +48,7 @@ const FONT_MAP = {
 };
 
 export default function RichEditor({ value, onChange, className, placeholder, toolbarExtras }) {
+  const [stats, setStats] = useState({ words: 0, chars: 0 });
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -54,6 +56,7 @@ export default function RichEditor({ value, onChange, className, placeholder, to
       }),
       Underline,
       TextStyle,
+      FontSize,
       FontFamily,
       Color.configure({ types: ["textStyle"] }),
       Highlight.configure({ multicolor: true }),
@@ -71,6 +74,10 @@ export default function RichEditor({ value, onChange, className, placeholder, to
     },
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
+      const txt = editor.getText() || "";
+      const trimmed = txt.trim();
+      const words = trimmed ? trimmed.split(/\s+/).length : 0;
+      setStats({ words, chars: txt.length });
     },
   });
 
@@ -78,18 +85,33 @@ export default function RichEditor({ value, onChange, className, placeholder, to
     if (!editor) return;
     const current = editor.getHTML();
     if (value !== current) editor.commands.setContent(value || "", false);
+    const txt = editor.getText() || "";
+    const trimmed = txt.trim();
+    const words = trimmed ? trimmed.split(/\s+/).length : 0;
+    setStats({ words, chars: txt.length });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const hasExtras = !!toolbarExtras;
 
-  const sizeValue = useMemo(() => {
-    if (!editor) return "normal";
-    if (editor.isActive("heading", { level: 1 })) return "title";
-    if (editor.isActive("heading", { level: 2 })) return "heading";
-    if (editor.isActive("heading", { level: 3 })) return "subheading";
-    return "normal";
-  }, [editor, editor?.state]);
+  const [sizeInput, setSizeInput] = useState("");
+  const PRESET_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36];
+
+  useEffect(() => {
+    if (!editor) return;
+    const updateFromEditor = () => {
+      const fs = editor.getAttributes("textStyle").fontSize || "";
+      const n = typeof fs === "string" ? fs.replace(/px$/i, "") : "";
+      setSizeInput(n);
+    };
+    updateFromEditor();
+    editor.on("selectionUpdate", updateFromEditor);
+    editor.on("transaction", updateFromEditor);
+    return () => {
+      editor.off("selectionUpdate", updateFromEditor);
+      editor.off("transaction", updateFromEditor);
+    };
+  }, [editor]);
 
   const fontKey = useMemo(() => {
     if (!editor) return "";
@@ -136,6 +158,48 @@ export default function RichEditor({ value, onChange, className, placeholder, to
                 </Button>
               </TooltipTrigger><TooltipContent>Underline</TooltipContent></Tooltip>
 
+              {/* Font Size control (input + dropdown) */}
+              <div className="relative flex items-center">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={sizeInput}
+                  onChange={(e) => setSizeInput(e.target.value.replace(/[^0-9]/g, ""))}
+                  onBlur={() => {
+                    const n = parseInt(sizeInput, 10);
+                    if (!isNaN(n) && n > 0) {
+                      editor.chain().focus().setFontSize(`${n}px`).run();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const n = parseInt(sizeInput, 10);
+                      if (!isNaN(n) && n > 0) {
+                        editor.chain().focus().setFontSize(`${n}px`).run();
+                      }
+                    }
+                  }}
+                  placeholder="Size"
+                  aria-label="Font size"
+                  className="h-11 md:h-8 w-16 px-2 text-xs pr-7"
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="absolute right-0 h-8 w-7 px-0 rounded-md hover:bg-accent/60" aria-label="Font size presets" title="Font size presets">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {PRESET_SIZES.map((n) => (
+                      <DropdownMenuItem key={n} onSelect={() => { setSizeInput(String(n)); editor.chain().focus().setFontSize(`${n}px`).run(); }}>
+                        {n}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
               <Tooltip><TooltipTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" aria-label="Strikethrough" title="Strikethrough" className={btn(editor.isActive("strike"))} onClick={() => editor.chain().focus().toggleStrike().run()}>
                   <Strikethrough className="h-4 w-4" />
@@ -160,23 +224,6 @@ export default function RichEditor({ value, onChange, className, placeholder, to
                   </SelectContent>
                 </Select>
 
-                <Select value={sizeValue} onValueChange={(v) => {
-                  const chain = editor.chain().focus();
-                  if (v === "normal") chain.setParagraph().run();
-                  if (v === "title") chain.toggleHeading({ level: 1 }).run();
-                  if (v === "heading") chain.toggleHeading({ level: 2 }).run();
-                  if (v === "subheading") chain.toggleHeading({ level: 3 }).run();
-                }}>
-                  <SelectTrigger className="h-11 md:h-8 px-3 md:px-2 py-0 w-32 sm:w-[8.5rem] text-xs">
-                    <SelectValue placeholder="Font Size" />
-                  </SelectTrigger>
-                  <SelectContent className="text-sm">
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="heading">Heading</SelectItem>
-                    <SelectItem value="subheading">Subheading</SelectItem>
-                    <SelectItem value="title">Title</SelectItem>
-                  </SelectContent>
-                </Select>
 
                 <Popover>
                   <PopoverTrigger asChild>
@@ -252,25 +299,11 @@ export default function RichEditor({ value, onChange, className, placeholder, to
                 </Button>
               </TooltipTrigger><TooltipContent>Quote Block</TooltipContent></Tooltip>
 
-              <Tooltip><TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" aria-label="Heading 1" title="Heading 1" className={btn(editor.isActive("heading", { level: 1 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
-                  <Heading1 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger><TooltipContent>H1</TooltipContent></Tooltip>
-
-              <Tooltip><TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" aria-label="Heading 2" title="Heading 2" className={btn(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-                  <Heading2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger><TooltipContent>H2</TooltipContent></Tooltip>
-
-              <Tooltip><TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" aria-label="Heading 3" title="Heading 3" className={btn(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
-                  <Heading3 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger><TooltipContent>H3</TooltipContent></Tooltip>
             </div>
           </TooltipProvider>
+          <div className="ml-auto shrink-0 pl-2 text-[11px] md:text-xs text-muted-foreground">
+            {stats.words} words • {stats.chars} chars
+          </div>
         </div>
       </div>
 

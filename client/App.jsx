@@ -24,7 +24,6 @@ if (typeof window !== "undefined" && window.ResizeObserver) {
 }
 
 import { Suspense, lazy, useEffect, useState } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -86,7 +85,7 @@ function Layout() {
             aria-label="Go Home"
             className="flex items-center gap-2"
           >
-            <img src="https://cdn.builder.io/api/v1/image/assets%2Faddb4921f9a9401eae5d6e57d8e51a79%2F11516b0de05449e998114111d9a9fa80?format=webp&width=64" alt={title} className="h-8 w-8 object-contain" />
+            <img src="https://cdn.builder.io/api/v1/image/assets%2Faddb4921f9a9401eae5d6e57d8e51a79%2F11516b0de05449e998114111d9a9fa80?format=webp&width=64" alt={title} className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/logo.svg'; }} />
             <span className="text-lg font-extrabold tracking-tight gradient-text">{title}</span>
           </button>
           <div className="flex items-center gap-1">
@@ -129,7 +128,6 @@ function Layout() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
       <Sonner />
       <DialogProvider>
         <BrowserRouter>
